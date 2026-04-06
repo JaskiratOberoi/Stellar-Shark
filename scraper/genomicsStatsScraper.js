@@ -57,6 +57,13 @@ function normalizeSidKey(sid) {
     return String(sid || '').trim().toUpperCase();
 }
 
+/** Stable sort for display (case-insensitive, numeric-friendly). */
+function sortSidDisplayValues(values) {
+    return [...values].sort((a, b) =>
+        normalizeSidKey(a).localeCompare(normalizeSidKey(b), undefined, { numeric: true, sensitivity: 'base' })
+    );
+}
+
 /** Interpret YYYY-MM-DD as the lab calendar date (no TZ shift). */
 function isoDateToDdMmYyyy(iso) {
     const m = String(iso || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -280,7 +287,8 @@ async function runGenomicsDailyCount(options = {}) {
 
             await goToFirstSampleGridPage(page);
 
-            const seenSids = new Set();
+            /** @type {Map<string, string>} normalized key → first-seen display SID */
+            const sidByKey = new Map();
             let totalTests = 0;
             let rowsScanned = 0;
             let pageIndex = 0;
@@ -291,10 +299,10 @@ async function runGenomicsDailyCount(options = {}) {
                 for (const row of rows) {
                     rowsScanned += 1;
                     const key = normalizeSidKey(row.sid);
-                    if (seenSids.has(key)) continue;
+                    if (sidByKey.has(key)) continue;
                     const n = contributionForBusinessUnitRow(row, businessUnit);
                     if (n < 1) continue;
-                    seenSids.add(key);
+                    sidByKey.set(key, String(row.sid || '').trim());
                     totalTests += n;
                 }
 
@@ -306,7 +314,7 @@ async function runGenomicsDailyCount(options = {}) {
                     statusLabel: '--All--',
                     page: pageIndex + 1,
                     totalTestsSoFar: completedBuTestsSum + totalTests,
-                    uniqueSids: completedBuSidsSum + seenSids.size
+                    uniqueSids: completedBuSidsSum + sidByKey.size
                 });
 
                 const pagerBefore = await getSampleGridPagerInfo(page);
@@ -337,13 +345,14 @@ async function runGenomicsDailyCount(options = {}) {
                     label: 'All statuses',
                     rowsScanned,
                     testsAdded: totalTests,
-                    sidsNew: seenSids.size,
+                    sidsNew: sidByKey.size,
                     pages: pageIndex + 1
                 }
             ];
 
+            const sidList = sortSidDisplayValues(sidByKey.values());
             completedBuTestsSum += totalTests;
-            completedBuSidsSum += seenSids.size;
+            completedBuSidsSum += sidByKey.size;
 
             allResults.push({
                 businessUnit,
@@ -356,7 +365,8 @@ async function runGenomicsDailyCount(options = {}) {
                         ? dateFromIso
                         : `${dateFromIso} → ${dateToIso}`,
                 totalTests,
-                uniqueSids: seenSids.size,
+                uniqueSids: sidByKey.size,
+                sidList,
                 perStatus,
                 durationMs: Date.now() - buT0
             });
@@ -378,6 +388,7 @@ async function runGenomicsDailyCount(options = {}) {
                 testCode: r0.testCode,
                 totalTests: r0.totalTests,
                 uniqueSids: r0.uniqueSids,
+                sidList: r0.sidList || [],
                 perStatus: r0.perStatus,
                 durationMs: finishedAt - startedAt,
                 completedAt: new Date().toISOString()

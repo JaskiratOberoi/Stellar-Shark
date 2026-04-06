@@ -9,6 +9,7 @@ import { BuChipGrid } from './components/BuChipGrid.jsx';
 import { TestCodePresets } from './components/TestCodePresets.jsx';
 import { MetricHero } from './components/MetricHero.jsx';
 import { ResultsMeta } from './components/ResultsMeta.jsx';
+import { ResultSidLists } from './components/ResultSidLists.jsx';
 import { BuSummaryTable, GridScanTable } from './components/DataTable.jsx';
 
 const DASHBOARD_TAGLINE =
@@ -389,6 +390,7 @@ export default function App() {
                                     compact
                                 />
                                 <ResultsMeta result={result} compact />
+                                <ResultSidLists result={result} />
                                 {error && (
                                     <motion.p
                                         initial={{ opacity: 0 }}
