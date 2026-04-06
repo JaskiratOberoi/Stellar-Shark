@@ -9,42 +9,45 @@ body,
 }
 
 body {
-    @apply font-sans antialiased text-genomics-fg overflow-x-hidden;
-    background: theme('colors.genomics.canvas');
+    @apply font-sans antialiased overflow-x-hidden;
+    background: theme('colors.lab.app');
+    color: theme('colors.lab.ink');
 }
 
-/* Mesh gradient + subtle grid */
-.genomics-bg {
+/* Subtle grid — LabIntelligence shell */
+.lab-app-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
-    background:
-        radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99, 102, 241, 0.32), transparent 55%),
-        radial-gradient(ellipse 70% 50% at 80% 10%, rgba(236, 72, 153, 0.18), transparent 50%),
-        radial-gradient(ellipse 60% 70% at 50% 100%, rgba(34, 211, 238, 0.14), transparent 45%),
-        linear-gradient(165deg, theme('colors.genomics.canvas') 0%, #0f172a 42%, #020617 100%);
+    background: theme('colors.lab.app');
+    pointer-events: none;
 }
 
-.genomics-bg::before {
+.lab-app-bg::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, black, transparent);
-    pointer-events: none;
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 100% 80% at 50% 0%, black 20%, transparent 70%);
+}
+
+.genomics-bg {
+    @apply lab-app-bg;
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .lab-app-bg,
+    .lab-app-bg::before,
     .genomics-bg,
     .genomics-bg::before {
         animation: none;
     }
 }
 
-/* Control tier — filters, logs, tables */
+/* Legacy glass panels — retained for any nested use */
 .glass-panel {
     @apply backdrop-blur-xl rounded-panel-lg border;
     border-color: theme('colors.genomics.border');
@@ -54,7 +57,6 @@ body {
         0 20px 40px -16px rgba(0, 0, 0, 0.55);
 }
 
-/* Emphasis tier — primary metric card */
 .glass-panel-emphasis {
     @apply backdrop-blur-2xl rounded-[1.35rem] border;
     border-color: theme('colors.genomics.border-strong');
@@ -69,14 +71,13 @@ body {
         theme('boxShadow.panel-inset');
 }
 
-/* Legacy alias */
 .glass-panel-strong {
     @apply glass-panel-emphasis;
 }
 
 .log-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.45) transparent;
+    scrollbar-color: rgba(56, 189, 248, 0.35) transparent;
 }
 
 .log-scroll::-webkit-scrollbar {
@@ -84,7 +85,7 @@ body {
 }
 
 .log-scroll::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.4);
+    background: rgba(56, 189, 248, 0.35);
     border-radius: 999px;
 }
 
@@ -96,13 +97,32 @@ body {
     }
 
     .btn-ghost {
-        @apply rounded-lg text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas disabled:opacity-40;
-        border-color: theme('colors.genomics.border');
-        @apply text-genomics-fg-muted hover:bg-white/5 hover:text-genomics-fg;
+        @apply rounded-lg text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] disabled:opacity-40;
+        border-color: rgba(255, 255, 255, 0.12);
+        @apply text-slate-400 hover:bg-white/5 hover:text-slate-100;
     }
 
     .btn-primary {
-        @apply rounded-xl font-semibold text-white px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-950/50 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply rounded-xl font-semibold text-white px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-950/50 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .btn-lab-run {
+        @apply w-full rounded-xl font-semibold text-white py-3.5 px-4 text-sm tracking-wide transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d18] disabled:opacity-45 disabled:cursor-not-allowed;
+        background: linear-gradient(105deg, #38bdf8 0%, #6366f1 45%, #8b5cf6 100%);
+        box-shadow: 0 8px 32px -8px rgba(56, 189, 248, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    .lab-card {
+        @apply rounded-2xl border p-5 min-h-0 flex flex-col;
+        border-color: theme('colors.lab.card-border');
+        background: theme('colors.lab.card');
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .lab-input {
+        @apply w-full rounded-lg border px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40;
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(2, 6, 23, 0.5);
     }
 
     .data-table {
@@ -110,7 +130,8 @@ body {
     }
 
     .data-table thead {
-        @apply text-genomics-fg-subtle sticky top-0 bg-slate-950/95 backdrop-blur-sm z-[1];
+        @apply text-lab-subtle sticky top-0 z-[1];
+        background: rgba(15, 23, 42, 0.98);
     }
 
     .data-table th,
@@ -120,5 +141,9 @@ body {
 
     .data-table tbody tr {
         @apply border-t border-white/5;
+    }
+
+    .data-table-lab thead {
+        @apply text-[10px] font-semibold uppercase tracking-wider text-slate-500;
     }
 }

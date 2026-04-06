@@ -13,7 +13,8 @@ export function BuChipGrid({
     clearAllBu,
     running,
     noBuSelected,
-    compact = false
+    compact = false,
+    variant = 'default'
 }) {
     const [showAllBu, setShowAllBu] = useState(false);
 
@@ -27,9 +28,14 @@ export function BuChipGrid({
         });
     }, [entries, showAllBu, selectedBu, buEntryLabel]);
 
-    const mb = compact ? 'mb-3' : 'mb-5';
-    const chipMax = compact ? 'max-h-24' : 'max-h-40';
-    const labelCls = compact ? 'text-xs text-genomics-fg-muted' : 'text-sm text-genomics-fg-muted';
+    const isSidebar = variant === 'sidebar';
+    const mb = compact || isSidebar ? 'mb-3' : 'mb-5';
+    const chipMax = isSidebar ? 'max-h-none' : compact ? 'max-h-24' : 'max-h-40';
+    const labelCls = isSidebar
+        ? 'text-[10px] font-semibold uppercase tracking-wider text-slate-500'
+        : compact
+          ? 'text-xs text-genomics-fg-muted'
+          : 'text-sm text-genomics-fg-muted';
 
     const onSelectAll = () => {
         setShowAllBu(true);
@@ -39,13 +45,17 @@ export function BuChipGrid({
     return (
         <div className={mb}>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                <label className={`block ${labelCls}`}>Business units</label>
+                <label className={`block ${labelCls}`}>{isSidebar ? 'Business units' : 'Business units'}</label>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <button
                         type="button"
                         disabled={running}
                         onClick={() => setShowAllBu((v) => !v)}
-                        className="text-xs text-genomics-accent hover:text-genomics-accent-hover disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas rounded"
+                        className={`text-[10px] uppercase tracking-wide disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded ${
+                            isSidebar
+                                ? 'text-sky-400 hover:text-sky-300'
+                                : 'text-xs text-genomics-accent hover:text-genomics-accent-hover focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
+                        }`}
                         aria-expanded={showAllBu}
                     >
                         {showAllBu ? 'Show fewer BUs' : 'Show all BUs'}
@@ -54,7 +64,11 @@ export function BuChipGrid({
                         type="button"
                         disabled={running}
                         onClick={onSelectAll}
-                        className="text-xs text-genomics-accent hover:text-genomics-accent-hover disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas rounded"
+                        className={`disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 rounded ${
+                            isSidebar
+                                ? 'text-[10px] uppercase tracking-wide text-sky-400 hover:text-sky-300 focus-visible:ring-cyan-500/40'
+                                : 'text-xs text-genomics-accent hover:text-genomics-accent-hover focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
+                        }`}
                     >
                         All
                     </button>
@@ -62,16 +76,24 @@ export function BuChipGrid({
                         type="button"
                         disabled={running}
                         onClick={clearAllBu}
-                        className="text-xs text-genomics-fg-subtle hover:text-genomics-fg-muted disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas rounded"
+                        className={`disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 rounded ${
+                            isSidebar
+                                ? 'text-[10px] uppercase tracking-wide text-slate-500 hover:text-slate-400 focus-visible:ring-cyan-500/40'
+                                : 'text-xs text-genomics-fg-subtle hover:text-genomics-fg-muted focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
+                        }`}
                     >
                         Clear
                     </button>
                 </div>
             </div>
             {noBuSelected && (
-                <p className="text-genomics-warning/95 text-xs mb-2">Select at least one business unit to run.</p>
+                <p className={`text-amber-400/95 mb-2 ${isSidebar ? 'text-[10px]' : 'text-xs'}`}>
+                    Select at least one business unit to run.
+                </p>
             )}
-            <div className={`flex flex-wrap ${compact ? 'gap-1.5' : 'gap-2'} ${chipMax} overflow-y-auto log-scroll pr-1`}>
+            <div
+                className={`flex flex-wrap ${isSidebar ? 'gap-2' : compact ? 'gap-1.5' : 'gap-2'} ${chipMax} overflow-y-auto log-scroll pr-1`}
+            >
                 {visibleEntries.map((entry) => {
                     const label = buEntryLabel(entry);
                     const badge = buEntryBadge(entry);
@@ -81,7 +103,18 @@ export function BuChipGrid({
                         : label === 'QUGEN'
                           ? 'QUGEN: rows with no lab badge count here (central lab)'
                           : 'Set "badge" in config/businessUnits.json (inspect span.badge in LIS) before running';
-                    const chipPad = compact ? 'px-2 py-1 rounded-md text-[11px]' : 'px-3 py-1.5 rounded-lg text-xs';
+                    const chipPad = isSidebar
+                        ? 'px-3 py-2.5 rounded-lg text-[11px] font-semibold uppercase tracking-wide min-w-[5.5rem] justify-center'
+                        : compact
+                          ? 'px-2 py-1 rounded-md text-[11px]'
+                          : 'px-3 py-1.5 rounded-lg text-xs';
+                    const selectedCls = isSidebar
+                        ? on
+                            ? 'border-white ring-1 ring-white bg-white/[0.08] text-white'
+                            : 'border-white/15 text-slate-400 hover:border-white/35 hover:text-slate-200'
+                        : on
+                          ? 'border-genomics-border-strong bg-indigo-600/35 text-white shadow-sm shadow-indigo-950/40'
+                          : 'border-genomics-border text-genomics-fg-muted hover:border-white/20 hover:text-genomics-fg';
                     return (
                         <button
                             key={label}
@@ -90,20 +123,16 @@ export function BuChipGrid({
                             aria-pressed={on}
                             title={title}
                             onClick={() => toggleBu(label)}
-                            className={`${chipPad} font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas ${
-                                on
-                                    ? 'border-genomics-border-strong bg-indigo-600/35 text-white shadow-sm shadow-indigo-950/40'
-                                    : 'border-genomics-border text-genomics-fg-muted hover:border-white/20 hover:text-genomics-fg'
-                            } disabled:opacity-40`}
+                            className={`${chipPad} inline-flex items-center font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d18] ${selectedCls} disabled:opacity-40`}
                         >
-                            <span>{label}</span>
-                            {badge ? (
+                            <span>{isSidebar ? label.toUpperCase() : label}</span>
+                            {!isSidebar && badge ? (
                                 <span className="ml-1.5 text-[10px] opacity-80 font-mono">{badge}</span>
-                            ) : label === 'QUGEN' ? (
+                            ) : !isSidebar && label === 'QUGEN' ? (
                                 <span className="ml-1.5 text-[10px] opacity-70 font-mono">no badge</span>
-                            ) : (
+                            ) : !isSidebar && !badge && label !== 'QUGEN' ? (
                                 <span className="ml-1.5 text-[10px] text-genomics-warning/90 font-mono">…</span>
-                            )}
+                            ) : null}
                         </button>
                     );
                 })}

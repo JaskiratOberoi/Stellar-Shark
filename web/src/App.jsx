@@ -2,18 +2,15 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { streamGenomicsRun, cancelRun } from './streamRun.js';
 import BUSINESS_UNIT_OPTIONS from '../../config/businessUnits.json';
-import { FloatingOrb } from './components/FloatingOrb.jsx';
-import { TopStatusBar } from './components/TopStatusBar.jsx';
-import { SectionCard } from './components/SectionCard.jsx';
 import { BuChipGrid } from './components/BuChipGrid.jsx';
 import { TestCodePresets } from './components/TestCodePresets.jsx';
-import { MetricHero } from './components/MetricHero.jsx';
-import { ResultsMeta } from './components/ResultsMeta.jsx';
-import { ResultSidLists } from './components/ResultSidLists.jsx';
 import { BuSummaryTable, GridScanTable } from './components/DataTable.jsx';
+import { LabTopNav } from './components/lab/LabTopNav.jsx';
+import { LabStatHero } from './components/lab/LabStatHero.jsx';
+import { LabActivityPanel } from './components/lab/LabActivityPanel.jsx';
+import { LabSidsPanel } from './components/lab/LabSidsPanel.jsx';
 
-const DASHBOARD_TAGLINE =
-    'Pick BUs · QUGEN = rows with no lab badge; other labs use config/businessUnits.json · +1 per SID · status --All-- · optional test code · read-only.';
+const LS_LAST_SNAPSHOT = 'labintel_last_snapshot';
 
 function buEntryLabel(entry) {
     return typeof entry === 'string' ? entry : entry.label;
@@ -67,6 +64,7 @@ export default function App() {
     const [liveSids, setLiveSids] = useState(null);
     const [liveStatus, setLiveStatus] = useState(null);
     const [liveBu, setLiveBu] = useState(null);
+    const [vsPrevPct, setVsPrevPct] = useState(null);
     const abortRef = useRef(null);
     const reduceMotion = useReducedMotion();
 
@@ -108,6 +106,36 @@ export default function App() {
             } else if (evt.type === 'info' || evt.type === 'warn') {
                 appendLog(evt.message || JSON.stringify(evt));
             } else if (evt.type === 'done' && evt.result) {
+                let deltaPct = null;
+                try {
+                    const prevRaw = localStorage.getItem(LS_LAST_SNAPSHOT);
+                    if (prevRaw) {
+                        const prev = JSON.parse(prevRaw);
+                        if (
+                            typeof prev.totalTests === 'number' &&
+                            prev.totalTests > 0 &&
+                            typeof evt.result.totalTests === 'number'
+                        ) {
+                            deltaPct = ((evt.result.totalTests - prev.totalTests) / prev.totalTests) * 100;
+                        }
+                    }
+                } catch {
+                    /* ignore */
+                }
+                setVsPrevPct(deltaPct);
+                try {
+                    localStorage.setItem(
+                        LS_LAST_SNAPSHOT,
+                        JSON.stringify({
+                            totalTests: evt.result.totalTests,
+                            uniqueSids: evt.result.uniqueSids,
+                            completedAt: evt.result.completedAt
+                        })
+                    );
+                } catch {
+                    /* ignore */
+                }
+
                 setResult(evt.result);
                 setLiveTotal(evt.result.totalTests);
                 setLiveSids(evt.result.uniqueSids);
@@ -131,6 +159,7 @@ export default function App() {
         setRunning(true);
         setError(null);
         setResult(null);
+        setVsPrevPct(null);
         setLog([]);
         setLiveTotal(null);
         setLiveSids(null);
@@ -213,267 +242,283 @@ export default function App() {
         return [];
     }, [result]);
 
-    const runFooter = (
-        <div className="flex flex-wrap gap-2">
-            <motion.button
-                type="button"
-                onClick={run}
-                disabled={running || rangeInvalid || noBuSelected}
-                whileHover={{ scale: reduceMotion || running ? 1 : 1.02 }}
-                whileTap={{ scale: reduceMotion || running ? 1 : 0.98 }}
-                className="btn-primary text-sm py-2 px-4"
-            >
-                {running ? 'Running…' : 'Run count'}
-            </motion.button>
-            <motion.button
-                type="button"
-                onClick={stop}
-                disabled={!running}
-                whileHover={{ scale: reduceMotion || !running ? 1 : 1.02 }}
-                whileTap={{ scale: reduceMotion || !running ? 1 : 0.98 }}
-                className="btn-ghost px-4 py-2 text-sm"
-            >
-                Cancel
-            </motion.button>
-        </div>
-    );
+    const aggregate = useMemo(() => {
+        if (!buSummaryRows.length) return null;
+        return {
+            samples: buSummaryRows.reduce((s, r) => s + r.totalTests, 0),
+            sids: buSummaryRows.reduce((s, r) => s + r.uniqueSids, 0)
+        };
+    }, [buSummaryRows]);
+
+    const totalDisplay = liveTotal ?? result?.totalTests;
+    const sidsDisplay = liveSids ?? result?.uniqueSids;
+
+    const assignedBu = useMemo(() => {
+        if (result?.multiBu && result.businessUnits?.length) return result.businessUnits.join(', ');
+        if (result?.businessUnit) return result.businessUnit;
+        if (liveBu) return liveBu;
+        if (selectedBuList.length) return selectedBuList.join(', ');
+        return '—';
+    }, [result, liveBu, selectedBuList]);
+
+    const unitRatioLabel = useMemo(() => {
+        if (totalDisplay == null || sidsDisplay == null) return null;
+        const u = Number(sidsDisplay);
+        const t = Number(totalDisplay);
+        if (!Number.isFinite(u) || !Number.isFinite(t) || u < 1) return null;
+        return `1 : ${(t / u).toFixed(1)}`;
+    }, [totalDisplay, sidsDisplay]);
+
+    const handleShare = useCallback(async () => {
+        const lines = [
+            'LabIntelligence — Daily test volume',
+            `Total samples: ${totalDisplay ?? '—'}`,
+            `Unique SIDs: ${sidsDisplay ?? '—'}`,
+            `Assigned BU: ${assignedBu}`,
+            `Test code: ${(result?.testCode ?? testCode).trim() || '—'}`,
+            `Range: ${dateFrom} → ${dateTo}`
+        ];
+        try {
+            await navigator.clipboard.writeText(lines.join('\n'));
+        } catch {
+            /* ignore */
+        }
+    }, [totalDisplay, sidsDisplay, assignedBu, result?.testCode, testCode, dateFrom, dateTo]);
+
+    const handleDownload = useCallback(() => {
+        if (!result) return;
+        const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `lab-run-${result.completedAt?.slice(0, 10) || 'result'}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }, [result]);
+
+    const primaryQuick = [
+        { id: 'today', label: 'Today' },
+        { id: 'yesterday', label: 'Yesterday' },
+        { id: 'week', label: '7d' }
+    ];
+    const secondaryQuick = [
+        { id: 'ereyesterday', label: 'Ereyesterday' },
+        { id: 'month', label: 'MTD' },
+        { id: 'ytd', label: 'YTD' }
+    ];
 
     return (
-        <div className="relative min-h-dvh md:h-dvh md:max-h-dvh md:flex md:flex-col md:overflow-hidden">
-            <div className="genomics-bg" aria-hidden />
-            <FloatingOrb className="w-[420px] h-[420px] bg-indigo-600/40 top-[5%] left-[10%]" delay={0} />
-            <FloatingOrb className="w-[380px] h-[380px] bg-fuchsia-600/30 top-[40%] right-[5%]" delay={2} />
-            <FloatingOrb className="w-[320px] h-[320px] bg-cyan-500/25 bottom-[10%] left-[30%]" delay={4} />
+        <div className="relative min-h-dvh flex flex-col md:h-dvh md:max-h-dvh md:overflow-hidden text-slate-200">
+            <div className="lab-app-bg genomics-bg" aria-hidden />
 
-            <div className="relative z-10 flex flex-1 min-h-0 min-w-0 flex-col w-full max-w-[1600px] mx-auto px-2 py-2 sm:px-3 md:overflow-hidden">
-                <TopStatusBar running={running} result={result} tagline={DASHBOARD_TAGLINE} />
+            <div className="relative z-10 flex flex-1 min-h-0 min-w-0 flex-col md:flex-row">
+                <aside className="w-full md:w-[320px] md:shrink-0 border-b md:border-b-0 md:border-r border-white/[0.08] bg-[#070d18] flex flex-col max-h-[55dvh] md:max-h-none overflow-y-auto log-scroll">
+                    <div className="p-5 border-b border-white/[0.06]">
+                        <h1 className="font-display text-xl font-bold text-white tracking-tight">LabIntelligence</h1>
+                        <p className="text-xs text-slate-500 mt-1">Clinical Architect</p>
+                        <p className="text-[10px] font-mono text-slate-600 mt-0.5">v2.4.0-Alpha</p>
+                    </div>
 
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto md:overflow-hidden pb-2 md:pb-0">
-                    <div className="flex-1 min-h-0 grid lg:grid-cols-12 gap-2 lg:gap-3 min-h-[280px] lg:min-h-0">
-                        <motion.div
-                            className="lg:col-span-5 flex min-h-0 flex-col"
-                            initial={{ opacity: 0, x: -12 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.06, duration: 0.4 }}
-                        >
-                            <SectionCard
-                                title="Configuration"
-                                description="Dates, BUs, optional test code."
-                                dense
-                                scrollBody
-                                bodyClassName="space-y-0 pr-0.5"
-                                className="flex-1 min-h-0 h-full"
-                                footer={runFooter}
+                    <div className="p-5 space-y-6 flex-1 flex flex-col">
+                        <section>
+                            <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                                Timeframe
+                            </h2>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[10px] text-slate-500 mb-1 block" htmlFor="date-from">
+                                        From
+                                    </label>
+                                    <input
+                                        id="date-from"
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(e) => setDateFrom(e.target.value)}
+                                        disabled={running}
+                                        className="lab-input text-xs py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-slate-500 mb-1 block" htmlFor="date-to">
+                                        To
+                                    </label>
+                                    <input
+                                        id="date-to"
+                                        type="date"
+                                        value={dateTo}
+                                        onChange={(e) => setDateTo(e.target.value)}
+                                        disabled={running}
+                                        className="lab-input text-xs py-2"
+                                    />
+                                </div>
+                            </div>
+                            {rangeInvalid && (
+                                <p className="text-rose-400 text-[10px] mt-2">From must be ≤ To.</p>
+                            )}
+                            <div className="flex flex-wrap gap-1.5 mt-3">
+                                {primaryQuick.map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        disabled={running}
+                                        onClick={() => applyPreset(id)}
+                                        className="px-2.5 py-1.5 rounded-md border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:bg-white/5 hover:border-white/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                {secondaryQuick.map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        disabled={running}
+                                        onClick={() => applyPreset(id)}
+                                        className="px-2 py-1 rounded text-[9px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-300 hover:bg-white/5 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+
+                        <BuChipGrid
+                            entries={BUSINESS_UNIT_OPTIONS}
+                            buEntryLabel={buEntryLabel}
+                            buEntryBadge={buEntryBadge}
+                            selectedBu={selectedBu}
+                            toggleBu={toggleBu}
+                            selectAllBu={selectAllBu}
+                            clearAllBu={clearAllBu}
+                            running={running}
+                            noBuSelected={noBuSelected}
+                            compact
+                            variant="sidebar"
+                        />
+
+                        <TestCodePresets
+                            testCode={testCode}
+                            setTestCode={setTestCode}
+                            running={running}
+                            sidebar
+                        />
+
+                        <div className="mt-auto pt-2 space-y-2">
+                            <motion.button
+                                type="button"
+                                onClick={run}
+                                disabled={running || rangeInvalid || noBuSelected}
+                                whileHover={{ scale: reduceMotion || running ? 1 : 1.01 }}
+                                whileTap={{ scale: reduceMotion || running ? 1 : 0.99 }}
+                                className="btn-lab-run flex items-center justify-center gap-2"
                             >
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                                    <div>
-                                        <label
-                                            className="block text-xs text-genomics-fg-muted mb-1"
-                                            htmlFor="date-from"
-                                        >
-                                            From
-                                        </label>
-                                        <input
-                                            id="date-from"
-                                            type="date"
-                                            value={dateFrom}
-                                            onChange={(e) => setDateFrom(e.target.value)}
-                                            disabled={running}
-                                            className="input-field text-sm py-2"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-genomics-fg-muted mb-1" htmlFor="date-to">
-                                            To
-                                        </label>
-                                        <input
-                                            id="date-to"
-                                            type="date"
-                                            value={dateTo}
-                                            onChange={(e) => setDateTo(e.target.value)}
-                                            disabled={running}
-                                            className="input-field text-sm py-2"
-                                        />
-                                    </div>
-                                </div>
-                                {rangeInvalid && (
-                                    <p className="text-genomics-danger text-xs mb-2">
-                                        From must be on or before To.
-                                    </p>
-                                )}
+                                <span className="text-lg leading-none" aria-hidden>
+                                    ▶
+                                </span>
+                                {running ? 'Running analysis…' : 'Run New Analysis'}
+                            </motion.button>
+                            {running ? (
+                                <button
+                                    type="button"
+                                    onClick={stop}
+                                    className="w-full text-center text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded"
+                                >
+                                    Cancel
+                                </button>
+                            ) : null}
 
-                                <BuChipGrid
-                                    entries={BUSINESS_UNIT_OPTIONS}
-                                    buEntryLabel={buEntryLabel}
-                                    buEntryBadge={buEntryBadge}
-                                    selectedBu={selectedBu}
-                                    toggleBu={toggleBu}
-                                    selectAllBu={selectAllBu}
-                                    clearAllBu={clearAllBu}
-                                    running={running}
-                                    noBuSelected={noBuSelected}
-                                    compact
-                                />
-
-                                <TestCodePresets
-                                    testCode={testCode}
-                                    setTestCode={setTestCode}
-                                    running={running}
-                                    compact
-                                />
-
-                                <p className="text-[10px] text-genomics-fg-subtle mb-1.5">Quick range</p>
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                    {[
-                                        { id: 'today', label: 'Today' },
-                                        { id: 'yesterday', label: 'Yesterday' },
-                                        { id: 'ereyesterday', label: 'Ereyesterday' },
-                                        { id: 'week', label: '7d' },
-                                        { id: 'month', label: 'MTD' },
-                                        { id: 'ytd', label: 'YTD' }
-                                    ].map(({ id, label: plabel }) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            disabled={running}
-                                            onClick={() => applyPreset(id)}
-                                            className="btn-ghost px-2 py-1 text-xs"
-                                        >
-                                            {plabel}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                            <details className="text-[10px] text-slate-600 pt-2 border-t border-white/[0.06] group">
+                                <summary className="cursor-pointer text-slate-500 hover:text-slate-400 list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                                    <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
+                                    Advanced
+                                </summary>
+                                <label className="flex items-center gap-2 cursor-pointer mt-2 text-slate-500">
                                     <input
                                         type="checkbox"
                                         checked={!headless}
                                         onChange={(e) => setHeadless(!e.target.checked)}
                                         disabled={running}
-                                        className="w-3.5 h-3.5 rounded border-slate-500 text-genomics-accent focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas"
+                                        className="w-3.5 h-3.5 rounded border-slate-600"
                                     />
-                                    <span className="text-xs text-genomics-fg-muted">
-                                        Headed browser <span className="text-genomics-fg-subtle">(debug)</span>
-                                    </span>
+                                    Headed browser (debug)
                                 </label>
-
-                                <details className="text-[10px] text-genomics-fg-subtle leading-snug group mb-1">
-                                    <summary className="cursor-pointer text-genomics-accent hover:text-genomics-accent-hover list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
-                                        <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
-                                        Env &amp; dev
-                                    </summary>
-                                    <p className="mt-1.5 pl-3 border-l border-white/10">
-                                        Default headless. Credentials:{' '}
-                                        <code className="text-genomics-accent-hover">LIS_*</code> or{' '}
-                                        <code className="text-genomics-accent-hover">CBC_LOGIN_*</code> in{' '}
-                                        <code className="text-genomics-accent-hover">.env</code>. Run{' '}
-                                        <code className="text-genomics-accent-hover">npm run dev</code> (API :3001, UI
-                                        :5173).
-                                    </p>
-                                </details>
-                            </SectionCard>
-                        </motion.div>
-
-                        <motion.div
-                            className="lg:col-span-7 flex min-h-0 flex-col min-h-[220px] lg:min-h-0"
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1, duration: 0.42 }}
-                        >
-                            <SectionCard
-                                variant="emphasis"
-                                dense
-                                scrollBody
-                                bodyClassName="space-y-1 pr-0.5"
-                                className="flex-1 min-h-0 h-full"
-                                title="Results"
-                                description="Live totals while running; full meta when done."
-                            >
-                                <MetricHero
-                                    liveTotal={liveTotal}
-                                    liveSids={liveSids}
-                                    liveBu={liveBu}
-                                    liveStatus={liveStatus}
-                                    multiBu={result?.multiBu}
-                                    running={running}
-                                    compact
-                                />
-                                <ResultsMeta result={result} compact />
-                                <ResultSidLists result={result} />
-                                {error && (
-                                    <motion.p
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="text-genomics-danger text-xs"
-                                    >
-                                        {error}
-                                    </motion.p>
-                                )}
-                            </SectionCard>
-                        </motion.div>
+                                <p className="mt-2 leading-relaxed pl-1 border-l border-white/10">
+                                    <code className="text-sky-500/90">LIS_*</code> or{' '}
+                                    <code className="text-sky-500/90">CBC_LOGIN_*</code> in{' '}
+                                    <code className="text-sky-500/90">.env</code>. Dev:{' '}
+                                    <code className="text-sky-500/90">npm run dev</code>
+                                </p>
+                            </details>
+                        </div>
                     </div>
+                </aside>
 
-                    <motion.div
-                        className="shrink-0 grid md:grid-cols-2 gap-2 md:max-h-[min(30dvh,240px)] md:min-h-[120px] flex-1 min-h-[200px] md:flex-none md:min-h-0"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.14, duration: 0.4 }}
-                    >
-                        <SectionCard
-                            title="Activity"
-                            description="Last 200 lines."
-                            dense
-                            scrollBody
-                            bodyClassName="p-0"
-                            className="min-h-0 h-full md:max-h-full flex flex-col"
-                        >
-                            <div className="rounded-md bg-black/35 border border-white/[0.06] px-2 py-1.5 font-mono text-[11px] text-genomics-fg-muted min-h-[4rem]">
-                                {log.length === 0 ? (
-                                    <span className="text-genomics-fg-subtle">Progress lines appear here…</span>
-                                ) : (
-                                    log.map((entry, i) => (
-                                        <div
-                                            key={`${entry.t}-${i}`}
-                                            className="py-0.5 border-b border-white/5 last:border-0 leading-snug"
-                                        >
-                                            {entry.line}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </SectionCard>
+                <main className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
+                    <LabTopNav onShare={handleShare} onDownload={handleDownload} />
 
-                        <SectionCard
-                            title="Data"
-                            description="Per-BU and grid scan (scroll if needed)."
-                            dense
-                            scrollBody
-                            bodyClassName="space-y-2 pr-0.5"
-                            className="min-h-0 h-full md:max-h-full flex flex-col"
-                        >
-                            <div>
-                                <h3 className="font-display font-semibold text-white text-xs mb-0.5">
-                                    Per business unit
-                                </h3>
-                                <p className="text-[10px] text-genomics-fg-subtle mb-1 leading-snug">
-                                    +1/SID when lab badge matches BU. SIDs not deduped across BUs.
-                                </p>
-                                <BuSummaryTable rows={buSummaryRows} maxClass="max-h-32 mb-3" />
+                    <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Daily test volume</h2>
+                            <p className="text-sm text-slate-500 mt-1">
+                                Genomics · LIS · Precision Diagnostic Analytics
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {running ? (
+                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-sky-500/40 bg-sky-500/10 text-[10px] font-bold uppercase tracking-widest text-sky-300">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400" />
+                                    </span>
+                                    Live monitor
+                                </span>
+                            ) : null}
+                        </div>
+                    </header>
+
+                    {error ? (
+                        <p className="mb-4 text-sm text-rose-400 border border-rose-500/30 rounded-lg px-3 py-2 bg-rose-950/20">
+                            {error}
+                        </p>
+                    ) : null}
+
+                    <div className="flex-1 min-h-0 overflow-y-auto log-scroll space-y-4 pr-1">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <LabStatHero
+                                totalDisplay={totalDisplay}
+                                vsPrevPct={vsPrevPct}
+                                durationMs={result?.durationMs}
+                                testCode={result?.testCode != null ? result.testCode : testCode}
+                                assignedBu={assignedBu}
+                                unitRatioLabel={unitRatioLabel}
+                                running={running}
+                            />
+                            <LabActivityPanel log={log} />
+                        </div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-4">
+                            <LabSidsPanel result={result} />
+                            <div className="lab-card">
+                                <h3 className="text-sm font-semibold text-white mb-3">Per business unit</h3>
+                                <BuSummaryTable
+                                    rows={buSummaryRows}
+                                    variant="lab"
+                                    aggregate={aggregate}
+                                    maxClass="max-h-48 mb-0"
+                                />
+                                <details className="mt-4 group">
+                                    <summary className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                                        <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
+                                        Grid scan (technical)
+                                    </summary>
+                                    <div className="mt-3">
+                                        <GridScanTable rows={perStatusRows} maxClass="max-h-40" />
+                                    </div>
+                                </details>
                             </div>
-                            <div>
-                                <h3 className="font-display font-semibold text-white text-xs mb-0.5">
-                                    Grid scan summary
-                                </h3>
-                                <p className="text-[10px] text-genomics-fg-subtle mb-1 leading-snug">
-                                    {result?.multiBu
-                                        ? 'Detail rows omitted for multi-BU; see totals above.'
-                                        : 'One --All-- search per BU; each SID at most once across pages.'}
-                                </p>
-                                <GridScanTable rows={perStatusRows} maxClass="max-h-36" />
-                            </div>
-                        </SectionCard>
-                    </motion.div>
-                </div>
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
     );

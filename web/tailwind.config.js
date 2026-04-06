@@ -4,8 +4,18 @@ export default {
     theme: {
         extend: {
             colors: {
+                lab: {
+                    app: '#0B1120',
+                    sidebar: '#070d18',
+                    'sidebar-border': 'rgba(255,255,255,0.08)',
+                    card: 'rgba(17, 24, 39, 0.92)',
+                    'card-border': 'rgba(255,255,255,0.09)',
+                    ink: '#e2e8f0',
+                    muted: '#94a3b8',
+                    subtle: '#64748b'
+                },
                 genomics: {
-                    canvas: '#030712',
+                    canvas: '#0B1120',
                     fg: '#f8fafc',
                     'fg-muted': '#94a3b8',
                     'fg-subtle': '#64748b',
