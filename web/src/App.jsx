@@ -168,6 +168,14 @@ export default function App() {
         if (kind === 'today') {
             setDateFrom(today);
             setDateTo(today);
+        } else if (kind === 'yesterday') {
+            const y = addDaysLocal(today, -1);
+            setDateFrom(y);
+            setDateTo(y);
+        } else if (kind === 'ereyesterday') {
+            const e = addDaysLocal(today, -2);
+            setDateFrom(e);
+            setDateTo(e);
         } else if (kind === 'week') {
             setDateFrom(addDaysLocal(today, -6));
             setDateTo(today);
@@ -318,6 +326,8 @@ export default function App() {
                                 <div className="flex flex-wrap gap-1.5 mb-3">
                                     {[
                                         { id: 'today', label: 'Today' },
+                                        { id: 'yesterday', label: 'Yesterday' },
+                                        { id: 'ereyesterday', label: 'Ereyesterday' },
                                         { id: 'week', label: '7d' },
                                         { id: 'month', label: 'MTD' },
                                         { id: 'ytd', label: 'YTD' }
