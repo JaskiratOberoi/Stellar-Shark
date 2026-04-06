@@ -9,6 +9,8 @@ import { LabTopNav } from './components/lab/LabTopNav.jsx';
 import { LabStatHero } from './components/lab/LabStatHero.jsx';
 import { LabActivityPanel } from './components/lab/LabActivityPanel.jsx';
 import { LabSidsPanel } from './components/lab/LabSidsPanel.jsx';
+import { LabReportsView } from './components/lab/LabReportsView.jsx';
+import { appendRunRecord } from './runHistoryStore.js';
 
 const LS_LAST_SNAPSHOT = 'labintel_last_snapshot';
 
@@ -65,6 +67,8 @@ export default function App() {
     const [liveStatus, setLiveStatus] = useState(null);
     const [liveBu, setLiveBu] = useState(null);
     const [vsPrevPct, setVsPrevPct] = useState(null);
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [runHistoryVersion, setRunHistoryVersion] = useState(0);
     const abortRef = useRef(null);
     const reduceMotion = useReducedMotion();
 
@@ -140,6 +144,25 @@ export default function App() {
                 setLiveTotal(evt.result.totalTests);
                 setLiveSids(evt.result.uniqueSids);
                 setLiveBu(null);
+
+                try {
+                    const snapshot =
+                        typeof structuredClone === 'function'
+                            ? structuredClone(evt.result)
+                            : JSON.parse(JSON.stringify(evt.result));
+                    appendRunRecord({
+                        id:
+                            typeof crypto !== 'undefined' && crypto.randomUUID
+                                ? crypto.randomUUID()
+                                : `run-${Date.now()}`,
+                        savedAt: new Date().toISOString(),
+                        result: snapshot
+                    });
+                    setRunHistoryVersion((v) => v + 1);
+                } catch (err) {
+                    appendLog(`Warning: could not save run to Reports history (${err?.message || err})`);
+                }
+
                 appendLog(
                     evt.result.multiBu
                         ? `Done: ${evt.result.totalTests} samples, ${evt.result.uniqueSids} unique SIDs summed across BUs`
@@ -454,70 +477,87 @@ export default function App() {
                 </aside>
 
                 <main className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
-                    <LabTopNav onShare={handleShare} onDownload={handleDownload} />
+                    <LabTopNav
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        onShare={handleShare}
+                        onDownload={handleDownload}
+                    />
 
-                    <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
-                        <div>
-                            <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Daily test volume</h2>
-                            <p className="text-sm text-slate-500 mt-1">
-                                Genomics · LIS · Precision Diagnostic Analytics
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {running ? (
-                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-sky-500/40 bg-sky-500/10 text-[10px] font-bold uppercase tracking-widest text-sky-300">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400" />
-                                    </span>
-                                    Live monitor
-                                </span>
+                    {activeTab === 'dashboard' ? (
+                        <>
+                            <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                                <div>
+                                    <h2 className="font-display text-2xl md:text-3xl font-bold text-white">
+                                        Daily test volume
+                                    </h2>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        Genomics · LIS · Precision Diagnostic Analytics
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {running ? (
+                                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-sky-500/40 bg-sky-500/10 text-[10px] font-bold uppercase tracking-widest text-sky-300">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400" />
+                                            </span>
+                                            Live monitor
+                                        </span>
+                                    ) : null}
+                                </div>
+                            </header>
+
+                            {error ? (
+                                <p className="mb-4 text-sm text-rose-400 border border-rose-500/30 rounded-lg px-3 py-2 bg-rose-950/20">
+                                    {error}
+                                </p>
                             ) : null}
-                        </div>
-                    </header>
 
-                    {error ? (
-                        <p className="mb-4 text-sm text-rose-400 border border-rose-500/30 rounded-lg px-3 py-2 bg-rose-950/20">
-                            {error}
-                        </p>
-                    ) : null}
+                            <div className="flex-1 min-h-0 overflow-y-auto log-scroll space-y-4 pr-1">
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                    <LabStatHero
+                                        totalDisplay={totalDisplay}
+                                        vsPrevPct={vsPrevPct}
+                                        durationMs={result?.durationMs}
+                                        testCode={result?.testCode != null ? result.testCode : testCode}
+                                        assignedBu={assignedBu}
+                                        unitRatioLabel={unitRatioLabel}
+                                        running={running}
+                                    />
+                                    <LabActivityPanel log={log} />
+                                </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto log-scroll space-y-4 pr-1">
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            <LabStatHero
-                                totalDisplay={totalDisplay}
-                                vsPrevPct={vsPrevPct}
-                                durationMs={result?.durationMs}
-                                testCode={result?.testCode != null ? result.testCode : testCode}
-                                assignedBu={assignedBu}
-                                unitRatioLabel={unitRatioLabel}
-                                running={running}
-                            />
-                            <LabActivityPanel log={log} />
-                        </div>
-
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-4">
-                            <LabSidsPanel result={result} />
-                            <div className="lab-card">
-                                <h3 className="text-sm font-semibold text-white mb-3">Per business unit</h3>
-                                <BuSummaryTable
-                                    rows={buSummaryRows}
-                                    variant="lab"
-                                    aggregate={aggregate}
-                                    maxClass="max-h-48 mb-0"
-                                />
-                                <details className="mt-4 group">
-                                    <summary className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
-                                        <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
-                                        Grid scan (technical)
-                                    </summary>
-                                    <div className="mt-3">
-                                        <GridScanTable rows={perStatusRows} maxClass="max-h-40" />
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-4">
+                                    <LabSidsPanel result={result} />
+                                    <div className="lab-card">
+                                        <h3 className="text-sm font-semibold text-white mb-3">Per business unit</h3>
+                                        <BuSummaryTable
+                                            rows={buSummaryRows}
+                                            variant="lab"
+                                            aggregate={aggregate}
+                                            maxClass="max-h-48 mb-0"
+                                        />
+                                        <details className="mt-4 group">
+                                            <summary className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                                                <span className="group-open:rotate-90 transition-transform inline-block">
+                                                    ▸
+                                                </span>
+                                                Grid scan (technical)
+                                            </summary>
+                                            <div className="mt-3">
+                                                <GridScanTable rows={perStatusRows} maxClass="max-h-40" />
+                                            </div>
+                                        </details>
                                     </div>
-                                </details>
+                                </div>
                             </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 min-h-0 overflow-y-auto log-scroll pr-1">
+                            <LabReportsView refreshKey={runHistoryVersion} />
                         </div>
-                    </div>
+                    )}
                 </main>
             </div>
         </div>

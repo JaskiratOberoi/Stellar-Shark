@@ -1,21 +1,43 @@
-export function LabTopNav({ onShare, onDownload }) {
-    const tabs = ['Dashboard', 'Analytics', 'Inventory', 'Reports'];
+const NAV_ITEMS = [
+    { id: 'dashboard', label: 'Dashboard', enabled: true },
+    { id: 'reports', label: 'Reports', enabled: true },
+    { id: 'analytics', label: 'Analytics', enabled: false },
+    { id: 'inventory', label: 'Inventory', enabled: false }
+];
 
+export function LabTopNav({ activeTab, onTabChange, onShare, onDownload }) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/[0.08] mb-6">
             <nav className="flex flex-wrap gap-1" aria-label="Main">
-                {tabs.map((name) => (
-                    <span
-                        key={name}
-                        className={
-                            name === 'Dashboard'
-                                ? 'px-3 py-1.5 text-sm font-medium text-white border-b-2 border-sky-400 -mb-[17px] pb-3'
-                                : 'px-3 py-1.5 text-sm text-slate-500 pointer-events-none select-none'
-                        }
-                    >
-                        {name}
-                    </span>
-                ))}
+                {NAV_ITEMS.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const activeCls =
+                        'px-3 py-1.5 text-sm font-medium text-white border-b-2 border-sky-400 -mb-[17px] pb-3 bg-transparent cursor-pointer';
+                    const idleEnabled =
+                        'px-3 py-1.5 text-sm text-slate-500 hover:text-slate-300 border-b-2 border-transparent -mb-[17px] pb-3 bg-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded-t';
+                    const disabledCls =
+                        'px-3 py-1.5 text-sm text-slate-600 border-b-2 border-transparent -mb-[17px] pb-3 select-none pointer-events-none';
+
+                    if (item.enabled) {
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={isActive}
+                                onClick={() => onTabChange(item.id)}
+                                className={isActive ? activeCls : idleEnabled}
+                            >
+                                {item.label}
+                            </button>
+                        );
+                    }
+                    return (
+                        <span key={item.id} className={disabledCls} aria-disabled="true">
+                            {item.label}
+                        </span>
+                    );
+                })}
             </nav>
             <div className="flex items-center gap-2">
                 <button
