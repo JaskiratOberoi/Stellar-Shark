@@ -8,9 +8,9 @@ export function TableShell({ children, maxClass = 'max-h-40', className = '' }) 
     );
 }
 
-export function BuSummaryTable({ rows }) {
+export function BuSummaryTable({ rows, maxClass = 'max-h-40 mb-6', shellClassName = '' }) {
     return (
-        <TableShell maxClass="max-h-40 mb-6">
+        <TableShell maxClass={`${maxClass} ${shellClassName}`.trim()}>
             <table className="data-table">
                 <thead>
                     <tr>
@@ -43,9 +43,9 @@ export function BuSummaryTable({ rows }) {
     );
 }
 
-export function GridScanTable({ rows }) {
+export function GridScanTable({ rows, maxClass = 'max-h-52', shellClassName = '' }) {
     return (
-        <TableShell maxClass="max-h-52">
+        <TableShell maxClass={`${maxClass} ${shellClassName}`.trim()}>
             <table className="data-table">
                 <thead>
                     <tr>

@@ -11,6 +11,9 @@ import { MetricHero } from './components/MetricHero.jsx';
 import { ResultsMeta } from './components/ResultsMeta.jsx';
 import { BuSummaryTable, GridScanTable } from './components/DataTable.jsx';
 
+const DASHBOARD_TAGLINE =
+    'Pick BUs · QUGEN = rows with no lab badge; other labs use config/businessUnits.json · +1 per SID · status --All-- · optional test code · read-only.';
+
 function buEntryLabel(entry) {
     return typeof entry === 'string' ? entry : entry.label;
 }
@@ -201,227 +204,265 @@ export default function App() {
         return [];
     }, [result]);
 
+    const runFooter = (
+        <div className="flex flex-wrap gap-2">
+            <motion.button
+                type="button"
+                onClick={run}
+                disabled={running || rangeInvalid || noBuSelected}
+                whileHover={{ scale: reduceMotion || running ? 1 : 1.02 }}
+                whileTap={{ scale: reduceMotion || running ? 1 : 0.98 }}
+                className="btn-primary text-sm py-2 px-4"
+            >
+                {running ? 'Running…' : 'Run count'}
+            </motion.button>
+            <motion.button
+                type="button"
+                onClick={stop}
+                disabled={!running}
+                whileHover={{ scale: reduceMotion || !running ? 1 : 1.02 }}
+                whileTap={{ scale: reduceMotion || !running ? 1 : 0.98 }}
+                className="btn-ghost px-4 py-2 text-sm"
+            >
+                Cancel
+            </motion.button>
+        </div>
+    );
+
     return (
-        <div className="relative min-h-screen">
+        <div className="relative min-h-dvh md:h-dvh md:max-h-dvh md:flex md:flex-col md:overflow-hidden">
             <div className="genomics-bg" aria-hidden />
             <FloatingOrb className="w-[420px] h-[420px] bg-indigo-600/40 top-[5%] left-[10%]" delay={0} />
             <FloatingOrb className="w-[380px] h-[380px] bg-fuchsia-600/30 top-[40%] right-[5%]" delay={2} />
             <FloatingOrb className="w-[320px] h-[320px] bg-cyan-500/25 bottom-[10%] left-[30%]" delay={4} />
 
-            <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 md:py-12">
-                <TopStatusBar running={running} result={result} />
+            <div className="relative z-10 flex flex-1 min-h-0 min-w-0 flex-col w-full max-w-[1600px] mx-auto px-2 py-2 sm:px-3 md:overflow-hidden">
+                <TopStatusBar running={running} result={result} tagline={DASHBOARD_TAGLINE} />
 
-                <motion.div
-                    className="text-center mb-10"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <h1 className="font-display text-3xl md:text-5xl font-bold bg-gradient-to-r from-white via-indigo-100 to-cyan-200 bg-clip-text text-transparent">
-                        Daily test volume
-                    </h1>
-                    <p className="mt-3 text-genomics-fg-muted max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-                        Pick BUs · <span className="text-genomics-fg">QUGEN</span> counts rows with{' '}
-                        <span className="text-genomics-fg">no</span> lab badge; other labs use{' '}
-                        <span className="text-genomics-fg">config/businessUnits.json</span> · +1 per SID · status{' '}
-                        <span className="text-genomics-fg">--All--</span> · one full grid pass · optional test code ·
-                        read-only
-                    </p>
-                </motion.div>
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto md:overflow-hidden pb-2 md:pb-0">
+                    <div className="flex-1 min-h-0 grid lg:grid-cols-12 gap-2 lg:gap-3 min-h-[280px] lg:min-h-0">
+                        <motion.div
+                            className="lg:col-span-5 flex min-h-0 flex-col"
+                            initial={{ opacity: 0, x: -12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.06, duration: 0.4 }}
+                        >
+                            <SectionCard
+                                title="Configuration"
+                                description="Dates, BUs, optional test code."
+                                dense
+                                scrollBody
+                                bodyClassName="space-y-0 pr-0.5"
+                                className="flex-1 min-h-0 h-full"
+                                footer={runFooter}
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                    <div>
+                                        <label
+                                            className="block text-xs text-genomics-fg-muted mb-1"
+                                            htmlFor="date-from"
+                                        >
+                                            From
+                                        </label>
+                                        <input
+                                            id="date-from"
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            disabled={running}
+                                            className="input-field text-sm py-2"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-genomics-fg-muted mb-1" htmlFor="date-to">
+                                            To
+                                        </label>
+                                        <input
+                                            id="date-to"
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            disabled={running}
+                                            className="input-field text-sm py-2"
+                                        />
+                                    </div>
+                                </div>
+                                {rangeInvalid && (
+                                    <p className="text-genomics-danger text-xs mb-2">
+                                        From must be on or before To.
+                                    </p>
+                                )}
 
-                <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+                                <BuChipGrid
+                                    entries={BUSINESS_UNIT_OPTIONS}
+                                    buEntryLabel={buEntryLabel}
+                                    buEntryBadge={buEntryBadge}
+                                    selectedBu={selectedBu}
+                                    toggleBu={toggleBu}
+                                    selectAllBu={selectAllBu}
+                                    clearAllBu={clearAllBu}
+                                    running={running}
+                                    noBuSelected={noBuSelected}
+                                    compact
+                                />
+
+                                <TestCodePresets
+                                    testCode={testCode}
+                                    setTestCode={setTestCode}
+                                    running={running}
+                                    compact
+                                    defaultOpen={false}
+                                />
+
+                                <p className="text-[10px] text-genomics-fg-subtle mb-1.5">Quick range</p>
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                    {[
+                                        { id: 'today', label: 'Today' },
+                                        { id: 'week', label: '7d' },
+                                        { id: 'month', label: 'MTD' },
+                                        { id: 'ytd', label: 'YTD' }
+                                    ].map(({ id, label: plabel }) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            disabled={running}
+                                            onClick={() => applyPreset(id)}
+                                            className="btn-ghost px-2 py-1 text-xs"
+                                        >
+                                            {plabel}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={!headless}
+                                        onChange={(e) => setHeadless(!e.target.checked)}
+                                        disabled={running}
+                                        className="w-3.5 h-3.5 rounded border-slate-500 text-genomics-accent focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas"
+                                    />
+                                    <span className="text-xs text-genomics-fg-muted">
+                                        Headed browser <span className="text-genomics-fg-subtle">(debug)</span>
+                                    </span>
+                                </label>
+
+                                <details className="text-[10px] text-genomics-fg-subtle leading-snug group mb-1">
+                                    <summary className="cursor-pointer text-genomics-accent hover:text-genomics-accent-hover list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                                        <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
+                                        Env &amp; dev
+                                    </summary>
+                                    <p className="mt-1.5 pl-3 border-l border-white/10">
+                                        Default headless. Credentials:{' '}
+                                        <code className="text-genomics-accent-hover">LIS_*</code> or{' '}
+                                        <code className="text-genomics-accent-hover">CBC_LOGIN_*</code> in{' '}
+                                        <code className="text-genomics-accent-hover">.env</code>. Run{' '}
+                                        <code className="text-genomics-accent-hover">npm run dev</code> (API :3001, UI
+                                        :5173).
+                                    </p>
+                                </details>
+                            </SectionCard>
+                        </motion.div>
+
+                        <motion.div
+                            className="lg:col-span-7 flex min-h-0 flex-col min-h-[220px] lg:min-h-0"
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1, duration: 0.42 }}
+                        >
+                            <SectionCard
+                                variant="emphasis"
+                                dense
+                                scrollBody
+                                bodyClassName="space-y-1 pr-0.5"
+                                className="flex-1 min-h-0 h-full"
+                                title="Results"
+                                description="Live totals while running; full meta when done."
+                            >
+                                <MetricHero
+                                    liveTotal={liveTotal}
+                                    liveSids={liveSids}
+                                    liveBu={liveBu}
+                                    liveStatus={liveStatus}
+                                    multiBu={result?.multiBu}
+                                    running={running}
+                                    compact
+                                />
+                                <ResultsMeta result={result} compact />
+                                {error && (
+                                    <motion.p
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="text-genomics-danger text-xs"
+                                    >
+                                        {error}
+                                    </motion.p>
+                                )}
+                            </SectionCard>
+                        </motion.div>
+                    </div>
+
                     <motion.div
-                        className="lg:col-span-5 space-y-6"
-                        initial={{ opacity: 0, x: -16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.08, duration: 0.45 }}
+                        className="shrink-0 grid md:grid-cols-2 gap-2 md:max-h-[min(30dvh,240px)] md:min-h-[120px] flex-1 min-h-[200px] md:flex-none md:min-h-0"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.14, duration: 0.4 }}
                     >
                         <SectionCard
-                            title="Configuration"
-                            description="Date range, business units, optional LIS test code, and run actions."
+                            title="Activity"
+                            description="Last 200 lines."
+                            dense
+                            scrollBody
+                            bodyClassName="p-0"
+                            className="min-h-0 h-full md:max-h-full flex flex-col"
                         >
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm text-genomics-fg-muted mb-2" htmlFor="date-from">
-                                        From date
-                                    </label>
-                                    <input
-                                        id="date-from"
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        disabled={running}
-                                        className="input-field"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-genomics-fg-muted mb-2" htmlFor="date-to">
-                                        To date
-                                    </label>
-                                    <input
-                                        id="date-to"
-                                        type="date"
-                                        value={dateTo}
-                                        onChange={(e) => setDateTo(e.target.value)}
-                                        disabled={running}
-                                        className="input-field"
-                                    />
-                                </div>
+                            <div className="rounded-md bg-black/35 border border-white/[0.06] px-2 py-1.5 font-mono text-[11px] text-genomics-fg-muted min-h-[4rem]">
+                                {log.length === 0 ? (
+                                    <span className="text-genomics-fg-subtle">Progress lines appear here…</span>
+                                ) : (
+                                    log.map((entry, i) => (
+                                        <div
+                                            key={`${entry.t}-${i}`}
+                                            className="py-0.5 border-b border-white/5 last:border-0 leading-snug"
+                                        >
+                                            {entry.line}
+                                        </div>
+                                    ))
+                                )}
                             </div>
-                            {rangeInvalid && (
-                                <p className="text-genomics-danger text-sm mb-3">From date must be on or before To date.</p>
-                            )}
-
-                            <BuChipGrid
-                                entries={BUSINESS_UNIT_OPTIONS}
-                                buEntryLabel={buEntryLabel}
-                                buEntryBadge={buEntryBadge}
-                                selectedBu={selectedBu}
-                                toggleBu={toggleBu}
-                                selectAllBu={selectAllBu}
-                                clearAllBu={clearAllBu}
-                                running={running}
-                                noBuSelected={noBuSelected}
-                            />
-
-                            <TestCodePresets testCode={testCode} setTestCode={setTestCode} running={running} />
-
-                            <p className="text-xs text-genomics-fg-subtle mb-2">Quick range</p>
-                            <div className="flex flex-wrap gap-2 mb-6">
-                                {[
-                                    { id: 'today', label: 'Today' },
-                                    { id: 'week', label: 'Last 7 days' },
-                                    { id: 'month', label: 'Month to date' },
-                                    { id: 'ytd', label: 'Year to date' }
-                                ].map(({ id, label: plabel }) => (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        disabled={running}
-                                        onClick={() => applyPreset(id)}
-                                        className="btn-ghost px-3 py-1.5"
-                                    >
-                                        {plabel}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <label className="flex items-center gap-3 cursor-pointer mb-6">
-                                <input
-                                    type="checkbox"
-                                    checked={!headless}
-                                    onChange={(e) => setHeadless(!e.target.checked)}
-                                    disabled={running}
-                                    className="w-4 h-4 rounded border-slate-500 text-genomics-accent focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas"
-                                />
-                                <span className="text-sm text-genomics-fg-muted">
-                                    Headed browser{' '}
-                                    <span className="text-genomics-fg-subtle">(visible Chromium for debugging)</span>
-                                </span>
-                            </label>
-
-                            <div className="sticky bottom-3 z-30 -mx-5 px-4 py-4 mt-2 rounded-xl border border-white/10 bg-slate-950/80 backdrop-blur-lg md:static md:border-0 md:bg-transparent md:backdrop-blur-none md:p-0 md:mx-0 md:rounded-none">
-                                <div className="flex flex-wrap gap-3">
-                                    <motion.button
-                                        type="button"
-                                        onClick={run}
-                                        disabled={running || rangeInvalid || noBuSelected}
-                                        whileHover={{ scale: reduceMotion || running ? 1 : 1.02 }}
-                                        whileTap={{ scale: reduceMotion || running ? 1 : 0.98 }}
-                                        className="btn-primary"
-                                    >
-                                        {running ? 'Running…' : 'Run count'}
-                                    </motion.button>
-                                    <motion.button
-                                        type="button"
-                                        onClick={stop}
-                                        disabled={!running}
-                                        whileHover={{ scale: reduceMotion || !running ? 1 : 1.02 }}
-                                        whileTap={{ scale: reduceMotion || !running ? 1 : 0.98 }}
-                                        className="btn-ghost px-6 py-3 text-sm"
-                                    >
-                                        Cancel
-                                    </motion.button>
-                                </div>
-                            </div>
-
-                            <p className="mt-6 text-xs text-genomics-fg-subtle leading-relaxed">
-                                Default is headless. Credentials: <code className="text-genomics-accent-hover">LIS_*</code>{' '}
-                                or <code className="text-genomics-accent-hover">CBC_LOGIN_*</code> in{' '}
-                                <code className="text-genomics-accent-hover">.env</code>. Run{' '}
-                                <code className="text-genomics-accent-hover">npm run dev</code> (API :3001, UI :5173).
-                            </p>
                         </SectionCard>
-                    </motion.div>
 
-                    <motion.div
-                        className="lg:col-span-7"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.12, duration: 0.5 }}
-                    >
-                        <SectionCard variant="emphasis" className="min-h-[300px] md:min-h-[340px]">
-                            <MetricHero
-                                liveTotal={liveTotal}
-                                liveSids={liveSids}
-                                liveBu={liveBu}
-                                liveStatus={liveStatus}
-                                multiBu={result?.multiBu}
-                                running={running}
-                            />
-                            <ResultsMeta result={result} />
-                            {error && (
-                                <motion.p
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="mt-4 text-genomics-danger text-sm"
-                                >
-                                    {error}
-                                </motion.p>
-                            )}
+                        <SectionCard
+                            title="Data"
+                            description="Per-BU and grid scan (scroll if needed)."
+                            dense
+                            scrollBody
+                            bodyClassName="space-y-2 pr-0.5"
+                            className="min-h-0 h-full md:max-h-full flex flex-col"
+                        >
+                            <div>
+                                <h3 className="font-display font-semibold text-white text-xs mb-0.5">
+                                    Per business unit
+                                </h3>
+                                <p className="text-[10px] text-genomics-fg-subtle mb-1 leading-snug">
+                                    +1/SID when lab badge matches BU. SIDs not deduped across BUs.
+                                </p>
+                                <BuSummaryTable rows={buSummaryRows} maxClass="max-h-32 mb-3" />
+                            </div>
+                            <div>
+                                <h3 className="font-display font-semibold text-white text-xs mb-0.5">
+                                    Grid scan summary
+                                </h3>
+                                <p className="text-[10px] text-genomics-fg-subtle mb-1 leading-snug">
+                                    {result?.multiBu
+                                        ? 'Detail rows omitted for multi-BU; see totals above.'
+                                        : 'One --All-- search per BU; each SID at most once across pages.'}
+                                </p>
+                                <GridScanTable rows={perStatusRows} maxClass="max-h-36" />
+                            </div>
                         </SectionCard>
                     </motion.div>
                 </div>
-
-                <motion.div
-                    className="mt-8 grid md:grid-cols-2 gap-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2, duration: 0.45 }}
-                >
-                    <SectionCard title="Activity" description="Live stream from the scraper (last 200 lines).">
-                        <div className="log-scroll h-52 overflow-y-auto rounded-lg bg-black/35 border border-white/[0.06] p-3 font-mono text-xs text-genomics-fg-muted">
-                            {log.length === 0 ? (
-                                <span className="text-genomics-fg-subtle">Progress lines appear here…</span>
-                            ) : (
-                                log.map((entry, i) => (
-                                    <div key={`${entry.t}-${i}`} className="py-0.5 border-b border-white/5 last:border-0">
-                                        {entry.line}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </SectionCard>
-
-                    <SectionCard
-                        title="Data"
-                        description="Per-BU totals and grid scan summary after each completed run."
-                    >
-                        <h3 className="font-display font-semibold text-white text-sm mb-2">Per business unit</h3>
-                        <p className="text-xs text-genomics-fg-subtle mb-3">
-                            +1 per SID when the client-code lab badge matches that BU. SIDs are not deduped across BUs.
-                        </p>
-                        <BuSummaryTable rows={buSummaryRows} />
-
-                        <h3 className="font-display font-semibold text-white text-sm mb-2">Grid scan summary</h3>
-                        <p className="text-xs text-genomics-fg-subtle mb-3">
-                            {result?.multiBu
-                                ? 'Detail rows are omitted for multi-BU runs; see totals above.'
-                                : 'One --All-- search per BU; badge rules apply; each SID at most once across pages.'}
-                        </p>
-                        <GridScanTable rows={perStatusRows} />
-                    </SectionCard>
-                </motion.div>
             </div>
         </div>
     );

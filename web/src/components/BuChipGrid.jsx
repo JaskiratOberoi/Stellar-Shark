@@ -7,12 +7,17 @@ export function BuChipGrid({
     selectAllBu,
     clearAllBu,
     running,
-    noBuSelected
+    noBuSelected,
+    compact = false
 }) {
+    const mb = compact ? 'mb-3' : 'mb-5';
+    const chipMax = compact ? 'max-h-24' : 'max-h-40';
+    const labelCls = compact ? 'text-xs text-genomics-fg-muted' : 'text-sm text-genomics-fg-muted';
+
     return (
-        <div className="mb-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <label className="block text-sm text-genomics-fg-muted">Business units</label>
+        <div className={mb}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                <label className={`block ${labelCls}`}>Business units</label>
                 <div className="flex gap-2">
                     <button
                         type="button"
@@ -35,7 +40,7 @@ export function BuChipGrid({
             {noBuSelected && (
                 <p className="text-genomics-warning/95 text-xs mb-2">Select at least one business unit to run.</p>
             )}
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto log-scroll pr-1">
+            <div className={`flex flex-wrap ${compact ? 'gap-1.5' : 'gap-2'} ${chipMax} overflow-y-auto log-scroll pr-1`}>
                 {entries.map((entry) => {
                     const label = buEntryLabel(entry);
                     const badge = buEntryBadge(entry);
@@ -45,6 +50,7 @@ export function BuChipGrid({
                         : label === 'QUGEN'
                           ? 'QUGEN: rows with no lab badge count here (central lab)'
                           : 'Set "badge" in config/businessUnits.json (inspect span.badge in LIS) before running';
+                    const chipPad = compact ? 'px-2 py-1 rounded-md text-[11px]' : 'px-3 py-1.5 rounded-lg text-xs';
                     return (
                         <button
                             key={label}
@@ -53,7 +59,7 @@ export function BuChipGrid({
                             aria-pressed={on}
                             title={title}
                             onClick={() => toggleBu(label)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas ${
+                            className={`${chipPad} font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas ${
                                 on
                                     ? 'border-genomics-border-strong bg-indigo-600/35 text-white shadow-sm shadow-indigo-950/40'
                                     : 'border-genomics-border text-genomics-fg-muted hover:border-white/20 hover:text-genomics-fg'
