@@ -9,8 +9,8 @@ body,
 }
 
 body {
-    @apply font-sans antialiased text-slate-100 overflow-x-hidden;
-    background: #030712;
+    @apply font-sans antialiased text-genomics-fg overflow-x-hidden;
+    background: theme('colors.genomics.canvas');
 }
 
 /* Mesh gradient + subtle grid */
@@ -19,10 +19,10 @@ body {
     inset: 0;
     z-index: 0;
     background:
-        radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99, 102, 241, 0.35), transparent 55%),
-        radial-gradient(ellipse 70% 50% at 80% 10%, rgba(236, 72, 153, 0.22), transparent 50%),
-        radial-gradient(ellipse 60% 70% at 50% 100%, rgba(34, 211, 238, 0.18), transparent 45%),
-        linear-gradient(165deg, #030712 0%, #0f172a 40%, #020617 100%);
+        radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99, 102, 241, 0.32), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 80% 10%, rgba(236, 72, 153, 0.18), transparent 50%),
+        radial-gradient(ellipse 60% 70% at 50% 100%, rgba(34, 211, 238, 0.14), transparent 45%),
+        linear-gradient(165deg, theme('colors.genomics.canvas') 0%, #0f172a 42%, #020617 100%);
 }
 
 .genomics-bg::before {
@@ -30,35 +30,60 @@ body {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+        linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, black, transparent);
     pointer-events: none;
 }
 
-/* Floating 3D-ish panels */
-.glass-panel {
-    @apply backdrop-blur-xl border border-white/10 rounded-2xl;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(30, 41, 59, 0.45) 100%);
-    box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-        0 25px 50px -12px rgba(0, 0, 0, 0.5);
+@media (prefers-reduced-motion: reduce) {
+    .genomics-bg,
+    .genomics-bg::before {
+        animation: none;
+    }
 }
 
-.glass-panel-strong {
-    @apply backdrop-blur-2xl border border-indigo-400/20 rounded-3xl;
-    background: linear-gradient(145deg, rgba(30, 27, 75, 0.55) 0%, rgba(15, 23, 42, 0.8) 50%, rgba(49, 46, 129, 0.35) 100%);
+/* Control tier — filters, logs, tables */
+.glass-panel {
+    @apply backdrop-blur-xl rounded-panel-lg border;
+    border-color: theme('colors.genomics.border');
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.72) 0%, rgba(30, 41, 59, 0.42) 100%);
     box-shadow:
-        0 0 80px -20px rgba(99, 102, 241, 0.45),
-        0 0 0 1px rgba(255, 255, 255, 0.08) inset;
-    transform-style: preserve-3d;
-    transform: perspective(1200px) rotateX(2deg);
+        theme('boxShadow.panel-inset'),
+        0 20px 40px -16px rgba(0, 0, 0, 0.55);
+}
+
+/* Emphasis tier — primary metric card */
+.glass-panel-emphasis {
+    @apply backdrop-blur-2xl rounded-[1.35rem] border;
+    border-color: theme('colors.genomics.border-strong');
+    background: linear-gradient(
+        155deg,
+        rgba(30, 27, 75, 0.5) 0%,
+        rgba(15, 23, 42, 0.82) 48%,
+        rgba(49, 46, 129, 0.32) 100%
+    );
+    box-shadow:
+        theme('boxShadow.glow-accent'),
+        theme('boxShadow.panel-inset');
+}
+
+/* Legacy alias */
+.glass-panel-strong {
+    @apply glass-panel-emphasis;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .glass-panel-emphasis-elevated {
+        transform: perspective(1000px) rotateX(1deg);
+        transform-style: preserve-3d;
+    }
 }
 
 .log-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.5) transparent;
+    scrollbar-color: rgba(99, 102, 241, 0.45) transparent;
 }
 
 .log-scroll::-webkit-scrollbar {
@@ -66,6 +91,41 @@ body {
 }
 
 .log-scroll::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.45);
+    background: rgba(99, 102, 241, 0.4);
     border-radius: 999px;
+}
+
+@layer components {
+    .input-field {
+        @apply w-full rounded-xl bg-slate-950/60 border px-4 py-3 text-genomics-fg placeholder:text-genomics-fg-subtle transition-shadow;
+        border-color: theme('colors.genomics.border');
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:border-genomics-border-strong;
+    }
+
+    .btn-ghost {
+        @apply rounded-lg text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas disabled:opacity-40;
+        border-color: theme('colors.genomics.border');
+        @apply text-genomics-fg-muted hover:bg-white/5 hover:text-genomics-fg;
+    }
+
+    .btn-primary {
+        @apply rounded-xl font-semibold text-white px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-950/50 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .data-table {
+        @apply w-full text-left text-xs;
+    }
+
+    .data-table thead {
+        @apply text-genomics-fg-subtle sticky top-0 bg-slate-950/95 backdrop-blur-sm z-[1];
+    }
+
+    .data-table th,
+    .data-table td {
+        @apply p-2;
+    }
+
+    .data-table tbody tr {
+        @apply border-t border-white/5;
+    }
 }

@@ -3,6 +3,34 @@ export default {
     content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
     theme: {
         extend: {
+            colors: {
+                genomics: {
+                    canvas: '#030712',
+                    fg: '#f8fafc',
+                    'fg-muted': '#94a3b8',
+                    'fg-subtle': '#64748b',
+                    accent: '#6366f1',
+                    'accent-hover': '#818cf8',
+                    success: '#22d3ee',
+                    warning: '#fbbf24',
+                    danger: '#fb7185',
+                    border: 'rgba(255, 255, 255, 0.1)',
+                    'border-strong': 'rgba(99, 102, 241, 0.28)',
+                    ring: 'rgba(129, 140, 248, 0.55)'
+                }
+            },
+            spacing: {
+                section: '2rem',
+                'section-lg': '2.5rem'
+            },
+            borderRadius: {
+                panel: '1rem',
+                'panel-lg': '1.25rem'
+            },
+            boxShadow: {
+                'panel-inset': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.06)',
+                'glow-accent': '0 0 60px -15px rgba(99, 102, 241, 0.35)'
+            },
             fontFamily: {
                 display: ['Outfit', 'system-ui', 'sans-serif'],
                 sans: ['DM Sans', 'system-ui', 'sans-serif']
