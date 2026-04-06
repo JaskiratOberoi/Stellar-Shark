@@ -312,7 +312,6 @@ export default function App() {
                                     setTestCode={setTestCode}
                                     running={running}
                                     compact
-                                    defaultOpen={false}
                                 />
 
                                 <p className="text-[10px] text-genomics-fg-subtle mb-1.5">Quick range</p>
