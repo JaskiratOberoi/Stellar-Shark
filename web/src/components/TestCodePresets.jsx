@@ -1,8 +1,25 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import TEST_CODE_PRESETS from '../testCodePresets.json';
+import { DEFAULT_VISIBLE_TEST_CODES } from '../dashboardDefaults.js';
+
+const DEFAULT_CODE_SET = new Set(DEFAULT_VISIBLE_TEST_CODES);
 
 export function TestCodePresets({ testCode, setTestCode, running, compact = false, defaultOpen = true }) {
     const [open, setOpen] = useState(defaultOpen);
+    const [showAllPresets, setShowAllPresets] = useState(false);
+
+    const trimmedCode = testCode.trim();
+    const trimmedLower = trimmedCode.toLowerCase();
+
+    const visiblePresets = useMemo(() => {
+        if (showAllPresets) return TEST_CODE_PRESETS;
+        return TEST_CODE_PRESETS.filter((preset) => {
+            const code = String(preset.code || '').trim();
+            if (DEFAULT_CODE_SET.has(code)) return true;
+            if (trimmedCode && code.toLowerCase() === trimmedLower) return true;
+            return false;
+        });
+    }, [showAllPresets, trimmedCode, trimmedLower]);
 
     const labelCls = compact ? 'text-xs text-genomics-fg-muted mb-1' : 'text-sm text-genomics-fg-muted mb-2';
     const inputCls = compact ? 'input-field font-mono text-xs' : 'input-field font-mono text-sm';
@@ -48,11 +65,20 @@ export function TestCodePresets({ testCode, setTestCode, running, compact = fals
             </p>
             {open ? (
                 <>
-                    <p className={`${compact ? 'text-[10px] mb-1' : 'text-xs mb-2'} text-genomics-fg-subtle`}>
-                        Quick picks
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <p className={`${compact ? 'text-[10px]' : 'text-xs'} text-genomics-fg-subtle`}>Quick picks</p>
+                        <button
+                            type="button"
+                            disabled={running}
+                            onClick={() => setShowAllPresets((v) => !v)}
+                            className="text-[11px] text-genomics-accent hover:text-genomics-accent-hover disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring rounded px-1"
+                            aria-expanded={showAllPresets}
+                        >
+                            {showAllPresets ? 'Show fewer codes' : 'Show all test codes'}
+                        </button>
+                    </div>
                     <div className={`flex flex-wrap gap-1.5 ${pickMax} overflow-y-auto log-scroll pr-1 pb-1`}>
-                        {TEST_CODE_PRESETS.map((preset) => {
+                        {visiblePresets.map((preset) => {
                             const code = String(preset.code || '').trim();
                             const selected =
                                 testCode.trim().toLowerCase() === code.toLowerCase() && code.length > 0;

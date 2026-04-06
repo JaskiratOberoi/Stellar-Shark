@@ -1,3 +1,8 @@
+import { useMemo, useState } from 'react';
+import { DEFAULT_VISIBLE_BU_LABELS } from '../dashboardDefaults.js';
+
+const DEFAULT_BU_SET = new Set(DEFAULT_VISIBLE_BU_LABELS);
+
 export function BuChipGrid({
     entries,
     buEntryLabel,
@@ -10,19 +15,45 @@ export function BuChipGrid({
     noBuSelected,
     compact = false
 }) {
+    const [showAllBu, setShowAllBu] = useState(false);
+
+    const visibleEntries = useMemo(() => {
+        if (showAllBu) return entries;
+        return entries.filter((entry) => {
+            const label = buEntryLabel(entry);
+            if (DEFAULT_BU_SET.has(label)) return true;
+            if (selectedBu.has(label)) return true;
+            return false;
+        });
+    }, [entries, showAllBu, selectedBu, buEntryLabel]);
+
     const mb = compact ? 'mb-3' : 'mb-5';
     const chipMax = compact ? 'max-h-24' : 'max-h-40';
     const labelCls = compact ? 'text-xs text-genomics-fg-muted' : 'text-sm text-genomics-fg-muted';
+
+    const onSelectAll = () => {
+        setShowAllBu(true);
+        selectAllBu();
+    };
 
     return (
         <div className={mb}>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <label className={`block ${labelCls}`}>Business units</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <button
                         type="button"
                         disabled={running}
-                        onClick={selectAllBu}
+                        onClick={() => setShowAllBu((v) => !v)}
+                        className="text-xs text-genomics-accent hover:text-genomics-accent-hover disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas rounded"
+                        aria-expanded={showAllBu}
+                    >
+                        {showAllBu ? 'Show fewer BUs' : 'Show all BUs'}
+                    </button>
+                    <button
+                        type="button"
+                        disabled={running}
+                        onClick={onSelectAll}
                         className="text-xs text-genomics-accent hover:text-genomics-accent-hover disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas rounded"
                     >
                         All
@@ -41,7 +72,7 @@ export function BuChipGrid({
                 <p className="text-genomics-warning/95 text-xs mb-2">Select at least one business unit to run.</p>
             )}
             <div className={`flex flex-wrap ${compact ? 'gap-1.5' : 'gap-2'} ${chipMax} overflow-y-auto log-scroll pr-1`}>
-                {entries.map((entry) => {
+                {visibleEntries.map((entry) => {
                     const label = buEntryLabel(entry);
                     const badge = buEntryBadge(entry);
                     const on = selectedBu.has(label);
