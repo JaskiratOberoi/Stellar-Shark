@@ -74,13 +74,6 @@ body {
     @apply glass-panel-emphasis;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .glass-panel-emphasis-elevated {
-        transform: perspective(1000px) rotateX(1deg);
-        transform-style: preserve-3d;
-    }
-}
-
 .log-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgba(99, 102, 241, 0.45) transparent;
