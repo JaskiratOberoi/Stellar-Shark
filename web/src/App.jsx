@@ -294,7 +294,7 @@ export default function App() {
 
     const handleShare = useCallback(async () => {
         const lines = [
-            'LabIntelligence — Daily test volume',
+            'Stellar Shark — Daily test volume',
             `Total samples: ${totalDisplay ?? '—'}`,
             `Unique SIDs: ${sidsDisplay ?? '—'}`,
             `Assigned BU: ${assignedBu}`,
@@ -336,7 +336,7 @@ export default function App() {
             <div className="relative z-10 flex flex-1 min-h-0 min-w-0 flex-col md:flex-row">
                 <aside className="w-full md:w-[320px] md:shrink-0 border-b md:border-b-0 md:border-r border-white/[0.08] bg-[#070d18] flex flex-col max-h-[55dvh] md:max-h-none overflow-y-auto log-scroll">
                     <div className="p-5 border-b border-white/[0.06]">
-                        <h1 className="font-display text-xl font-bold text-white tracking-tight">LabIntelligence</h1>
+                        <h1 className="font-display text-xl font-bold text-white tracking-tight">Stellar Shark</h1>
                         <p className="text-xs text-slate-500 mt-1">Clinical Architect</p>
                         <p className="text-[10px] font-mono text-slate-600 mt-0.5">v2.4.0-Alpha</p>
                     </div>

@@ -13,7 +13,7 @@ export function LabReportsView({ refreshKey = 0 }) {
         const blob = new Blob([exportRunHistoryJson()], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `labintel-run-history-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `stellar-shark-run-history-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
     };
