@@ -1,0 +1,18 @@
+[
+    { "label": "QUGEN", "badge": "" },
+    { "label": "ZIRAKPUR", "badge": "ZIR" },
+    { "label": "KHETARPAL", "badge": "KHE" },
+    { "label": "KARNAL", "badge": "KAR" },
+    { "label": "SRINAGAR", "badge": "SRI" },
+    { "label": "SAMARPAN", "badge": "" },
+    { "label": "AGRA", "badge": "AGR" },
+    { "label": "RAJASTHAN", "badge": "" },
+    { "label": "GORAKHPUR", "badge": "" },
+    { "label": "Jhansi", "badge": "" },
+    { "label": "AMROHA", "badge": "" },
+    { "label": "JAMMU", "badge": "" },
+    { "label": "Lucknow", "badge": "Luc" },
+    { "label": "MEDSKY", "badge": "" },
+    { "label": "ROHTAK", "badge": "ROH" },
+    { "label": "DEHRADUN", "badge": "" }
+]

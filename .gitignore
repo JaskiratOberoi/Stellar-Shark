@@ -1,0 +1,13 @@
+node_modules/
+web/node_modules/
+.env
+.env.*
+!.env.example
+web/dist/
+dist/
+.DS_Store
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+.cache/
+coverage/
