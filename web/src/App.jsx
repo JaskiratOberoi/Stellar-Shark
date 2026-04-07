@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { streamGenomicsRun, cancelRun } from './streamRun.js';
 import BUSINESS_UNIT_OPTIONS from '../../config/businessUnits.json';
@@ -10,6 +10,7 @@ import { LabStatHero } from './components/lab/LabStatHero.jsx';
 import { LabActivityPanel } from './components/lab/LabActivityPanel.jsx';
 import { LabSidsPanel } from './components/lab/LabSidsPanel.jsx';
 import { LabReportsView } from './components/lab/LabReportsView.jsx';
+import { LabSchedulerView } from './components/lab/LabSchedulerView.jsx';
 import { appendRunRecord } from './runHistoryStore.js';
 
 const LS_LAST_SNAPSHOT = 'labintel_last_snapshot';
@@ -71,6 +72,12 @@ export default function App() {
     const [runHistoryVersion, setRunHistoryVersion] = useState(0);
     const abortRef = useRef(null);
     const reduceMotion = useReducedMotion();
+
+    useEffect(() => {
+        const bump = () => setRunHistoryVersion((v) => v + 1);
+        window.addEventListener('labintel-run-history-imported', bump);
+        return () => window.removeEventListener('labintel-run-history-imported', bump);
+    }, []);
 
     const selectedBuList = useMemo(() => [...selectedBu], [selectedBu]);
     const noBuSelected = selectedBuList.length === 0;
@@ -150,15 +157,20 @@ export default function App() {
                         typeof structuredClone === 'function'
                             ? structuredClone(evt.result)
                             : JSON.parse(JSON.stringify(evt.result));
-                    appendRunRecord({
+                    const record = {
                         id:
                             typeof crypto !== 'undefined' && crypto.randomUUID
                                 ? crypto.randomUUID()
                                 : `run-${Date.now()}`,
                         savedAt: new Date().toISOString(),
-                        result: snapshot
-                    });
-                    setRunHistoryVersion((v) => v + 1);
+                        result: snapshot,
+                        source: 'dashboard'
+                    };
+                    void appendRunRecord(record)
+                        .then(() => setRunHistoryVersion((v) => v + 1))
+                        .catch((err) => {
+                            appendLog(`Warning: could not save run to Reports history (${err?.message || err})`);
+                        });
                 } catch (err) {
                     appendLog(`Warning: could not save run to Reports history (${err?.message || err})`);
                 }
@@ -553,9 +565,13 @@ export default function App() {
                                 </div>
                             </div>
                         </>
-                    ) : (
+                    ) : activeTab === 'reports' ? (
                         <div className="flex-1 min-h-0 overflow-y-auto log-scroll pr-1">
                             <LabReportsView refreshKey={runHistoryVersion} />
+                        </div>
+                    ) : (
+                        <div className="flex-1 min-h-0 overflow-y-auto log-scroll pr-1">
+                            <LabSchedulerView />
                         </div>
                     )}
                 </main>

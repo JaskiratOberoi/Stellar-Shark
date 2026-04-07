@@ -11,3 +11,5 @@ npm-debug.log*
 .pnpm-debug.log*
 .cache/
 coverage/
+data/
+release/

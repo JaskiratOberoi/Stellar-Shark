@@ -1,6 +1,7 @@
 const NAV_ITEMS = [
     { id: 'dashboard', label: 'Dashboard', enabled: true },
     { id: 'reports', label: 'Reports', enabled: true },
+    { id: 'scheduler', label: 'Scheduler', enabled: true },
     { id: 'analytics', label: 'Analytics', enabled: false },
     { id: 'inventory', label: 'Inventory', enabled: false }
 ];
