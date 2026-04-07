@@ -1,7 +1,7 @@
 {
   "name": "genomics-dashboard",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Genomics LIS daily test-count dashboard (QUGEN)",
   "author": "QUGEN",
   "main": "electron/main.cjs",

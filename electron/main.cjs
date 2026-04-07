@@ -6,7 +6,7 @@
  * before require('server/index.js') so UI routes mount correctly.
  */
 
-const { app, BrowserWindow, shell, dialog } = require('electron');
+const { app, BrowserWindow, shell, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -144,6 +144,9 @@ if (!gotLock) {
 
     app.whenReady().then(async () => {
         try {
+            if (app.isPackaged && process.platform !== 'darwin') {
+                Menu.setApplicationMenu(null);
+            }
             await startBackendInProcess();
             createWindow();
         } catch (err) {
