@@ -1,23 +1,21 @@
 const NAV_ITEMS = [
     { id: 'dashboard', label: 'Dashboard', enabled: true },
     { id: 'reports', label: 'Reports', enabled: true },
-    { id: 'scheduler', label: 'Scheduler', enabled: true },
-    { id: 'analytics', label: 'Analytics', enabled: false },
-    { id: 'inventory', label: 'Inventory', enabled: false }
+    { id: 'scheduler', label: 'Scheduler', enabled: true }
 ];
 
 export function LabTopNav({ activeTab, onTabChange, onShare, onDownload }) {
     return (
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/[0.08] mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border mb-6">
             <nav className="flex flex-wrap gap-1" aria-label="Main">
                 {NAV_ITEMS.map((item) => {
                     const isActive = activeTab === item.id;
                     const activeCls =
-                        'px-3 py-1.5 text-sm font-medium text-white border-b-2 border-sky-400 -mb-[17px] pb-3 bg-transparent cursor-pointer';
+                        'px-3 py-1.5 text-sm font-medium text-ink border-b-2 border-primary -mb-[17px] pb-3 bg-transparent cursor-pointer';
                     const idleEnabled =
-                        'px-3 py-1.5 text-sm text-slate-500 hover:text-slate-300 border-b-2 border-transparent -mb-[17px] pb-3 bg-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded-t';
+                        'px-3 py-1.5 text-sm text-ink-muted hover:text-ink-secondary border-b-2 border-transparent -mb-[17px] pb-3 bg-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-t';
                     const disabledCls =
-                        'px-3 py-1.5 text-sm text-slate-600 border-b-2 border-transparent -mb-[17px] pb-3 select-none pointer-events-none';
+                        'px-3 py-1.5 text-sm text-ink-faint border-b-2 border-transparent -mb-[17px] pb-3 select-none pointer-events-none';
 
                     if (item.enabled) {
                         return (
@@ -44,7 +42,7 @@ export function LabTopNav({ activeTab, onTabChange, onShare, onDownload }) {
                 <button
                     type="button"
                     onClick={onShare}
-                    className="p-2 rounded-lg border border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                    className="p-2 rounded-xl border border-border text-ink-muted hover:text-ink hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                     title="Copy summary"
                     aria-label="Copy summary"
                 >
@@ -60,7 +58,7 @@ export function LabTopNav({ activeTab, onTabChange, onShare, onDownload }) {
                 <button
                     type="button"
                     onClick={onDownload}
-                    className="p-2 rounded-lg border border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                    className="p-2 rounded-xl border border-border text-ink-muted hover:text-ink hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                     title="Download result JSON"
                     aria-label="Download result JSON"
                 >

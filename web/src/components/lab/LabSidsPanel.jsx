@@ -5,7 +5,7 @@ function CopyAllButton({ onCopy, copied }) {
         <button
             type="button"
             onClick={onCopy}
-            className="text-[10px] font-bold uppercase tracking-widest text-sky-400 hover:text-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded px-1 shrink-0"
+            className="text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-1 shrink-0"
         >
             {copied ? 'Copied' : 'Copy all'}
         </button>
@@ -29,12 +29,12 @@ function SidGrid({ title, sids, legacyHint, showCopyButton = true }) {
 
     if (legacyHint) {
         return (
-            <p className="text-[11px] text-amber-400/90">Re-run the analysis to load the full SID list.</p>
+            <p className="text-[11px] text-warning">Re-run the analysis to load the full SID list.</p>
         );
     }
 
     if (list.length === 0) {
-        return <p className="text-[11px] text-slate-500">No sample IDs for this run.</p>;
+        return <p className="text-[11px] text-ink-muted">No sample IDs for this run.</p>;
     }
 
     const copyBtn = showCopyButton ? <CopyAllButton onCopy={copyAll} copied={copied} /> : null;
@@ -43,15 +43,15 @@ function SidGrid({ title, sids, legacyHint, showCopyButton = true }) {
         <div>
             {title ? (
                 <div className="flex items-center justify-between gap-2 mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{title}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{title}</p>
                     {copyBtn}
                 </div>
             ) : showCopyButton ? (
                 <div className="flex items-center justify-end mb-2">{copyBtn}</div>
             ) : null}
-            <ul className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-xs text-slate-300 tabular-nums">
+            <ul className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-xs text-ink-secondary tabular-nums">
                 {list.map((sid, i) => (
-                    <li key={`${sid}-${i}`} className="border-b border-white/5 py-1">
+                    <li key={`${sid}-${i}`} className="border-b border-border py-1">
                         {sid}
                     </li>
                 ))}
@@ -65,9 +65,9 @@ export function LabSidsPanel({ result }) {
         return (
             <div className="lab-card min-h-[200px]">
                 <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">Sample IDs (SIDs)</h3>
+                    <h3 className="text-sm font-semibold text-ink">Sample IDs (SIDs)</h3>
                 </div>
-                <p className="text-[11px] text-slate-500">Run an analysis to list SIDs.</p>
+                <p className="text-[11px] text-ink-muted">Run an analysis to list SIDs.</p>
             </div>
         );
     }
@@ -76,9 +76,9 @@ export function LabSidsPanel({ result }) {
         return (
             <div className="lab-card min-h-[200px] max-h-[360px] overflow-y-auto log-scroll">
                 <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">Sample IDs (SIDs)</h3>
+                    <h3 className="text-sm font-semibold text-ink">Sample IDs (SIDs)</h3>
                 </div>
-                <p className="text-[10px] text-slate-500 mb-4">Per business unit (not deduped across BUs).</p>
+                <p className="text-[10px] text-ink-muted mb-4">Per business unit (not deduped across BUs).</p>
                 <div className="space-y-6">
                     {result.results.map((r) => {
                         const legacy =
@@ -122,7 +122,7 @@ function LabSidsSingleCard({ sids, legacyHint }) {
     return (
         <div className="lab-card min-h-[200px] max-h-[360px] flex flex-col">
             <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
-                <h3 className="text-sm font-semibold text-white">Sample IDs (SIDs)</h3>
+                <h3 className="text-sm font-semibold text-ink">Sample IDs (SIDs)</h3>
                 {list.length > 0 && !legacyHint ? (
                     <CopyAllButton onCopy={copyAll} copied={copied} />
                 ) : null}

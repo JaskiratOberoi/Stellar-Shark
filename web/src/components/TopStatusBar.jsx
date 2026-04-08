@@ -17,7 +17,7 @@ export function TopStatusBar({ running, result, tagline }) {
                         Daily test volume
                     </h1>
                     <span className="text-[10px] font-medium tracking-[0.15em] text-indigo-300/80 uppercase whitespace-nowrap">
-                        Genomics · LIS
+                        Nexus by Stellar Infomatica · Genomics · LIS
                     </span>
                 </div>
                 {tagline ? (

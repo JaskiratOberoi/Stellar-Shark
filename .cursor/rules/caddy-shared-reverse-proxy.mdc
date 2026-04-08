@@ -1,0 +1,26 @@
+---
+description: Shared Caddy on this machine — additive blocks only; never break other apps
+alwaysApply: true
+---
+
+# Shared Caddy reverse proxy (local server)
+
+The live config is **`Z:\Ares-CRM\server\Caddyfile`**, started with **`Z:\Ares-CRM\server\start-caddy-service.ps1`**. One Caddy process serves **multiple apps** (Ares CRM, BioSentry, Prenatal API, Stellar Sense / Directus, Asset Tracker, etc.). Cursor often runs on the same machine; do not treat this file like an app-local config.
+
+## Rules for edits (CORS, Nexus, TLS, new APIs)
+
+1. **Additive by default** — For new behavior (e.g. Nexus, extra CORS), add a **new** site block `{ ... }` or extend a block **only** for the same service (e.g. extra comma-separated hostnames for one upstream). Do **not** remove, rename, merge, or “simplify” existing site blocks unless the user explicitly requests it and accepts impact on **every** app behind Caddy.
+
+2. **Isolate app changes** — Do not change another app’s `reverse_proxy` target, `health_uri`, or header/CORS logic when fixing a different product. Copy patterns from existing blocks when adding a new host; do not refactor unrelated blocks.
+
+3. **CORS** — Prefer the **app backend** for `Access-Control-*` when possible. If Caddy must set CORS, keep it **scoped to that site’s block** (or matchers inside that block). Avoid global directives that affect all sites unless the user asks for that.
+
+4. **After editing** — Run `caddy validate --config Z:\Ares-CRM\server\Caddyfile`, then reload with `.\start-caddy-service.ps1 reload` from `Z:\Ares-CRM\server` (do not point Caddy at a different stray `Caddyfile`).
+
+5. **DNS hostnames** — `stellarinformatica.com` and `stellarinfomatica.com` are different FQDNs. Each hostname the browser calls must match a site block (often both names listed for one upstream).
+
+## Anti-patterns
+
+- Replacing the whole file or deleting blocks “to clean up.”
+- Changing one app’s port/upstream without verifying Docker / PM2 on this server.
+- Assuming a `Caddyfile` under `caddy/` or another repo is the live config; the parent **`server\Caddyfile`** is authoritative.

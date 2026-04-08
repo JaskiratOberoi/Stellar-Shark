@@ -165,7 +165,7 @@ export function LabReportsView({ refreshKey = 0 }) {
         const blob = new Blob([json], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `stellar-shark-run-history-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `nexus-run-history-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
     };
@@ -181,7 +181,7 @@ export function LabReportsView({ refreshKey = 0 }) {
     if (history.length === 0) {
         return (
             <div className="lab-card max-w-2xl">
-                <h2 className="font-display text-xl font-bold text-white mb-2">Reports</h2>
+                <h2 className="font-display text-xl font-bold text-ink mb-2">Reports</h2>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
                     Completed runs are saved on the server (and mirrored locally when the API is available). Results
                     from the Dashboard and successful Scheduler jobs appear here automatically.
@@ -201,7 +201,7 @@ export function LabReportsView({ refreshKey = 0 }) {
         <div className="space-y-4 min-h-0 flex flex-col flex-1">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Reports</h2>
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-ink">Reports</h2>
                     <p className="text-sm text-slate-500 mt-1 max-w-2xl">
                         Detailed run log: worksheet range, filters, per-lab counts, and technical grid. Data persists in
                         the app data folder (desktop) or <code className="text-sky-500/90">data/</code> (server).

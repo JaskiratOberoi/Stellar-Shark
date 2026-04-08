@@ -24,7 +24,8 @@ const {
     getSampleGridFingerprint,
     waitForGridRefreshAfterSearch
 } = require('./lisNav.js');
-const { DEFAULT_BUSINESS_UNIT, BUSINESS_UNITS, labBadgeForBusinessUnit } = require('./constants.js');
+const constants = require('./constants.js');
+const { DEFAULT_BUSINESS_UNIT, labBadgeForBusinessUnit } = constants;
 
 const MAX_GRID_PAGES = 500;
 
@@ -90,10 +91,59 @@ function getDefaultDateIso() {
 
 function checkAborted(signal) {
     if (signal && signal.aborted) {
+        const r = signal.reason;
+        if (r instanceof Error) throw r;
         const err = new Error('Run cancelled');
         err.name = 'AbortError';
         throw err;
     }
+}
+
+/** Wall-clock cap + user cancel; always call `dispose()` in a `finally` after starting the browser. */
+function combineUserAndTimeoutSignal(userSignal, timeoutMs) {
+    const out = new AbortController();
+    let timer = setTimeout(() => {
+        timer = null;
+        if (!out.signal.aborted) {
+            const err = new Error(
+                `Run exceeded maximum duration (${Math.round(timeoutMs / 60000)} min). Increase GENOMICS_RUN_MAX_MS if needed.`
+            );
+            err.name = 'TimeoutError';
+            out.abort(err);
+        }
+    }, timeoutMs);
+
+    const onUserAbort = () => {
+        if (timer != null) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        if (!out.signal.aborted) {
+            const err = new Error('Run cancelled');
+            err.name = 'AbortError';
+            out.abort(err);
+        }
+    };
+
+    if (userSignal?.aborted) {
+        if (timer != null) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        onUserAbort();
+    } else if (userSignal) {
+        userSignal.addEventListener('abort', onUserAbort, { once: true });
+    }
+
+    return {
+        signal: out.signal,
+        dispose() {
+            if (timer != null) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        }
+    };
 }
 
 async function trySetStatusAll(page) {
@@ -125,7 +175,7 @@ function resolveBusinessUnits(options) {
 }
 
 function assertKnownBusinessUnits(units) {
-    const known = new Set(BUSINESS_UNITS);
+    const known = new Set(constants.BUSINESS_UNITS);
     for (const u of units) {
         if (!known.has(u)) {
             return `Unknown business unit "${u}". Use labels from config/businessUnits.json.`;
@@ -165,7 +215,9 @@ async function runGenomicsDailyCount(options = {}) {
         throw new Error(`Invalid range: dateFrom (${dateFromIso}) must be ≤ dateTo (${dateToIso})`);
     }
 
-    const businessUnits = resolveBusinessUnits(options);
+    constants.refreshBusinessUnitsFromDisk();
+    let businessUnits = resolveBusinessUnits(options);
+    businessUnits = businessUnits.map((u) => constants.resolveCanonicalBusinessUnitLabel(u));
     const unknownBu = assertKnownBusinessUnits(businessUnits);
     if (unknownBu) throw new Error(unknownBu);
     const badgeCfg = assertLabBadgesConfigured(businessUnits);
@@ -174,7 +226,10 @@ async function runGenomicsDailyCount(options = {}) {
     const testCodeTrim = options.testCode != null ? String(options.testCode).trim() : '';
     const headless = options.headless !== false;
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
-    const signal = options.signal;
+    const userSignal = options.signal;
+    const runMaxMs = Math.max(60_000, Number(process.env.GENOMICS_RUN_MAX_MS || 5_400_000));
+    const deadline = combineUserAndTimeoutSignal(userSignal, runMaxMs);
+    const signal = deadline.signal;
 
     const fromDdMm = isoDateToDdMmYyyy(dateFromIso);
     const toDdMm = isoDateToDdMmYyyy(dateToIso);
@@ -185,7 +240,14 @@ async function runGenomicsDailyCount(options = {}) {
     const executablePath = resolveExecutablePath();
     if (executablePath) launchOpts.executablePath = executablePath;
 
-    const browser = await puppeteer.launch(launchOpts);
+    let browser;
+    try {
+        browser = await puppeteer.launch(launchOpts);
+    } catch (launchErr) {
+        deadline.dispose();
+        throw launchErr;
+    }
+
     let page;
     try {
         page = await browser.newPage();
@@ -418,7 +480,24 @@ async function runGenomicsDailyCount(options = {}) {
         onProgress({ type: 'done', result });
         return result;
     } finally {
-        await browser.close().catch(() => {});
+        try {
+            if (page && typeof page.isClosed === 'function' && !page.isClosed()) {
+                await page.close({ runBeforeUnload: false });
+            }
+        } catch (_) {
+            /* ignore */
+        }
+        try {
+            const proc = browser?.process?.();
+            if (proc && !proc.killed) {
+                proc.stderr?.unref?.();
+                proc.stdout?.unref?.();
+            }
+        } catch (_) {
+            /* ignore */
+        }
+        if (browser) await browser.close().catch(() => {});
+        deadline.dispose();
     }
 }
 

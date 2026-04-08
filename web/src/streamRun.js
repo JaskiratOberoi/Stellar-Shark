@@ -1,13 +1,20 @@
+import { authHeaders } from './apiClient.js';
+
 /**
  * POST /api/run and consume SSE-style `data: {...}\n\n` chunks from the response body.
  * @param {object} body
  * @param {(evt: object) => void} onEvent
  * @param {AbortSignal} [signal]
  */
+
 export async function streamGenomicsRun(body, onEvent, signal) {
     const res = await fetch('/api/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            ...authHeaders()
+        },
         body: JSON.stringify(body),
         signal
     });
@@ -15,6 +22,10 @@ export async function streamGenomicsRun(body, onEvent, signal) {
     if (res.status === 409) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || 'A run is already in progress');
+    }
+
+    if (res.status === 401) {
+        throw new Error('Authentication required. Please sign in.');
     }
 
     if (!res.ok) {
@@ -48,6 +59,9 @@ export async function streamGenomicsRun(body, onEvent, signal) {
 }
 
 export async function cancelRun() {
-    const res = await fetch('/api/cancel', { method: 'POST' });
+    const res = await fetch('/api/cancel', {
+        method: 'POST',
+        headers: { ...authHeaders() }
+    });
     return res.json();
 }

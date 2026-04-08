@@ -15,7 +15,7 @@ export function LabStatHero({
 }) {
     const trend =
         vsPrevPct != null && Number.isFinite(vsPrevPct) ? (
-            <span className={`inline-flex items-center gap-1 text-sm ${vsPrevPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`inline-flex items-center gap-1 text-sm ${vsPrevPct >= 0 ? 'text-success' : 'text-danger'}`}>
                 <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                     {vsPrevPct >= 0 ? (
                         <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
@@ -27,7 +27,7 @@ export function LabStatHero({
                 {vsPrevPct.toFixed(0)}% vs. prev run
             </span>
         ) : (
-            <span className="text-sm text-slate-500">Run again to compare vs. previous</span>
+            <span className="text-sm text-ink-muted">Run again to compare vs. previous</span>
         );
 
     const meta = [
@@ -39,18 +39,18 @@ export function LabStatHero({
 
     return (
         <div className="lab-card">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Total samples processed</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-muted mb-2">Total samples processed</p>
             <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
-                <p className="font-display text-5xl sm:text-6xl font-bold text-white tabular-nums leading-none">
+                <p className="font-display text-5xl sm:text-6xl font-bold text-ink tabular-nums leading-none">
                     {totalDisplay != null ? totalDisplay : '—'}
                 </p>
                 {trend}
             </div>
-            <div className="space-y-2.5 text-xs border-t border-white/10 pt-4">
+            <div className="space-y-2.5 text-xs border-t border-border pt-4">
                 {meta.map(({ k, v }) => (
                     <div key={k} className="flex justify-between gap-4">
-                        <span className="text-slate-500 uppercase tracking-wide shrink-0">{k}</span>
-                        <span className="text-slate-200 font-medium text-right truncate" title={String(v)}>
+                        <span className="text-ink-muted uppercase tracking-wide shrink-0">{k}</span>
+                        <span className="text-ink font-medium text-right truncate" title={String(v)}>
                             {v}
                         </span>
                     </div>

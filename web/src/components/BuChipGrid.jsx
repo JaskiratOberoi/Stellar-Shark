@@ -51,9 +51,9 @@ export function BuChipGrid({
                         type="button"
                         disabled={running}
                         onClick={() => setShowAllBu((v) => !v)}
-                        className={`text-[10px] uppercase tracking-wide disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded ${
+                        className={`text-[10px] uppercase tracking-wide disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 rounded ${
                             isSidebar
-                                ? 'text-sky-400 hover:text-sky-300'
+                                ? 'text-primary hover:text-primary-hover focus-visible:ring-primary/30'
                                 : 'text-xs text-genomics-accent hover:text-genomics-accent-hover focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
                         }`}
                         aria-expanded={showAllBu}
@@ -66,7 +66,7 @@ export function BuChipGrid({
                         onClick={onSelectAll}
                         className={`disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 rounded ${
                             isSidebar
-                                ? 'text-[10px] uppercase tracking-wide text-sky-400 hover:text-sky-300 focus-visible:ring-cyan-500/40'
+                                ? 'text-[10px] uppercase tracking-wide text-primary hover:text-primary-hover focus-visible:ring-primary/30'
                                 : 'text-xs text-genomics-accent hover:text-genomics-accent-hover focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
                         }`}
                     >
@@ -78,7 +78,7 @@ export function BuChipGrid({
                         onClick={clearAllBu}
                         className={`disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 rounded ${
                             isSidebar
-                                ? 'text-[10px] uppercase tracking-wide text-slate-500 hover:text-slate-400 focus-visible:ring-cyan-500/40'
+                                ? 'text-[10px] uppercase tracking-wide text-ink-muted hover:text-ink-secondary focus-visible:ring-primary/30'
                                 : 'text-xs text-genomics-fg-subtle hover:text-genomics-fg-muted focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-genomics-canvas'
                         }`}
                     >
@@ -108,13 +108,17 @@ export function BuChipGrid({
                         : compact
                           ? 'px-2 py-1 rounded-md text-[11px]'
                           : 'px-3 py-1.5 rounded-lg text-xs';
+                    /* Sidebar sits on light bg (e.g. bg-white); selected must stay readable — never white-on-white. */
                     const selectedCls = isSidebar
                         ? on
-                            ? 'border-white ring-1 ring-white bg-white/[0.08] text-white'
-                            : 'border-white/15 text-slate-400 hover:border-white/35 hover:text-slate-200'
+                            ? 'border-primary bg-primary text-white shadow-sm ring-1 ring-primary/25'
+                            : 'border-border text-ink-secondary bg-white hover:bg-surface-muted hover:border-border-strong'
                         : on
                           ? 'border-genomics-border-strong bg-indigo-600/35 text-white shadow-sm shadow-indigo-950/40'
                           : 'border-genomics-border text-genomics-fg-muted hover:border-white/20 hover:text-genomics-fg';
+                    const focusRing = isSidebar
+                        ? 'focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                        : 'focus-visible:ring-cyan-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d18]';
                     return (
                         <button
                             key={label}
@@ -123,7 +127,7 @@ export function BuChipGrid({
                             aria-pressed={on}
                             title={title}
                             onClick={() => toggleBu(label)}
-                            className={`${chipPad} inline-flex items-center font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d18] ${selectedCls} disabled:opacity-40`}
+                            className={`${chipPad} inline-flex items-center font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 ${focusRing} ${selectedCls} disabled:opacity-40`}
                         >
                             <span>{isSidebar ? label.toUpperCase() : label}</span>
                             {!isSidebar && badge ? (

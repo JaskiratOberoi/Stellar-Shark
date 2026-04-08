@@ -1,7 +1,40 @@
 const fs = require('fs');
 const path = require('path');
 
-const businessUnitsPath = path.join(__dirname, '..', 'config', 'businessUnits.json');
+/** Tried in order: entrypoint-relative (works if scraper lives under dist/), scraper-relative, cwd. */
+function businessUnitsJsonCandidates() {
+    const out = [];
+    const fromEnv = process.env.NEXUS_CONFIG_DIR && String(process.env.NEXUS_CONFIG_DIR).trim();
+    if (fromEnv) {
+        out.push(path.join(fromEnv, 'businessUnits.json'));
+    }
+    const fromEnvFile = process.env.NEXUS_BUSINESS_UNITS_CONFIG && String(process.env.NEXUS_BUSINESS_UNITS_CONFIG).trim();
+    if (fromEnvFile) {
+        out.push(fromEnvFile);
+    }
+    try {
+        if (require.main && require.main.filename) {
+            const mainDir = path.dirname(require.main.filename);
+            out.push(path.join(mainDir, '..', 'config', 'businessUnits.json'));
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    out.push(
+        path.join(__dirname, '..', 'config', 'businessUnits.json'),
+        path.join(process.cwd(), 'config', 'businessUnits.json'),
+        path.join(process.cwd(), '..', 'config', 'businessUnits.json')
+    );
+    const seen = new Set();
+    const uniq = [];
+    for (const p of out) {
+        const n = path.normalize(p);
+        if (seen.has(n)) continue;
+        seen.add(n);
+        uniq.push(n);
+    }
+    return uniq;
+}
 
 /**
  * Each entry: { label, badge }. Badge is the exact inner text of span.badge in the client-code cell.
@@ -28,19 +61,51 @@ function normalizeBusinessUnitEntries(raw) {
     return out.length > 0 ? out : [{ label: 'QUGEN', badge: '' }];
 }
 
-let BUSINESS_UNIT_ENTRIES;
-try {
-    BUSINESS_UNIT_ENTRIES = normalizeBusinessUnitEntries(JSON.parse(fs.readFileSync(businessUnitsPath, 'utf8')));
-} catch (_) {
-    BUSINESS_UNIT_ENTRIES = [{ label: 'QUGEN', badge: '' }];
+function loadBusinessUnitEntries(options = {}) {
+    const { quiet = false } = options;
+    for (const p of businessUnitsJsonCandidates()) {
+        try {
+            if (!fs.existsSync(p)) continue;
+            const raw = fs.readFileSync(p, 'utf8');
+            const entries = normalizeBusinessUnitEntries(JSON.parse(raw));
+            if (!quiet && process.env.NODE_ENV !== 'test') {
+                console.info(`[nexus] Loaded ${entries.length} business unit(s) from ${p}`);
+            }
+            return entries;
+        } catch (err) {
+            console.warn(`[nexus] Could not read business units from ${p}:`, err.message || err);
+        }
+    }
+    console.warn(
+        '[nexus] WARNING: config/businessUnits.json not found or invalid — only QUGEN is allowed. ' +
+            'Ensure config/ is copied next to the app (see Dockerfile) or run from the repo root.'
+    );
+    return [{ label: 'QUGEN', badge: '' }];
 }
 
-const BUSINESS_UNITS = BUSINESS_UNIT_ENTRIES.map((e) => e.label);
+/** Mutable so we can reload from disk; use getters on module.exports (do not destructure BUSINESS_UNITS at import time). */
+let businessUnitEntries = loadBusinessUnitEntries();
+let businessUnitLabels = businessUnitEntries.map((e) => e.label);
+
+function refreshBusinessUnitsFromDisk() {
+    businessUnitEntries = loadBusinessUnitEntries({ quiet: true });
+    businessUnitLabels = businessUnitEntries.map((e) => e.label);
+}
 
 function labBadgeForBusinessUnit(label) {
     const want = String(label || '').trim();
-    const entry = BUSINESS_UNIT_ENTRIES.find((e) => e.label === want);
+    const entry = businessUnitEntries.find((e) => e.label === want);
     return entry ? String(entry.badge || '').trim() : '';
+}
+
+/** Map UI / API string to the exact `label` in config (case-insensitive fallback). */
+function resolveCanonicalBusinessUnitLabel(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return s;
+    const exact = businessUnitEntries.find((e) => e.label === s);
+    if (exact) return exact.label;
+    const fold = businessUnitEntries.find((e) => e.label.toLowerCase() === s.toLowerCase());
+    return fold ? fold.label : s;
 }
 
 /**
@@ -68,7 +133,13 @@ const DEFAULT_BUSINESS_UNIT = 'QUGEN';
 module.exports = {
     WORKSHEET_STATUS_LABELS,
     DEFAULT_BUSINESS_UNIT,
-    BUSINESS_UNITS,
-    BUSINESS_UNIT_ENTRIES,
+    get BUSINESS_UNITS() {
+        return businessUnitLabels;
+    },
+    get BUSINESS_UNIT_ENTRIES() {
+        return businessUnitEntries;
+    },
+    refreshBusinessUnitsFromDisk,
+    resolveCanonicalBusinessUnitLabel,
     labBadgeForBusinessUnit
 };

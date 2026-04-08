@@ -1,0 +1,12 @@
+node_modules
+web/node_modules
+release
+.git
+.cursor
+.env
+.env.*
+*.md
+!README.md
+data
+npm-debug.log*
+.DS_Store

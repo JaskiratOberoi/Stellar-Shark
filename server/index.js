@@ -8,18 +8,18 @@ const cors = require('cors');
 {
     const rootDir = path.join(__dirname, '..');
     let envPath = path.join(rootDir, '.env');
-    if (process.env.STELLAR_SHARK_ENV_PATH) {
-        envPath = process.env.STELLAR_SHARK_ENV_PATH;
+    if (process.env.NEXUS_ENV_PATH) {
+        envPath = process.env.NEXUS_ENV_PATH;
     } else if (
-        process.env.STELLAR_SHARK_USER_DATA &&
-        fs.existsSync(path.join(process.env.STELLAR_SHARK_USER_DATA, '.env'))
+        process.env.NEXUS_USER_DATA &&
+        fs.existsSync(path.join(process.env.NEXUS_USER_DATA, '.env'))
     ) {
-        envPath = path.join(process.env.STELLAR_SHARK_USER_DATA, '.env');
+        envPath = path.join(process.env.NEXUS_USER_DATA, '.env');
     }
     require('dotenv').config({ path: envPath });
 }
 
-if (process.env.STELLAR_SHARK_DESKTOP === '1') {
+if (process.env.NEXUS_DESKTOP === '1') {
     process.env.NODE_ENV = 'production';
 }
 
@@ -27,17 +27,40 @@ const { runGenomicsDailyCount, getDefaultDateIso } = require('../scraper/genomic
 const { DEFAULT_BUSINESS_UNIT } = require('../scraper/constants');
 const { createScheduler } = require('./schedulerService');
 const { appendReportsRun, listReportsRunsNewestFirst } = require('./runHistoryFile');
+const { migrate } = require('./db/migrate');
+const { closePool, useDatabase } = require('./db/pool');
+const { requireAuth } = require('./auth');
+const authApi = require('./routes/authApi');
+const adminApi = require('./routes/adminApi');
+const labApi = require('./routes/labApi');
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 3101);
 const app = express();
 
-app.use(
-    cors({
+function buildCorsOptions() {
+    const raw = process.env.CORS_ORIGINS;
+    if (raw && String(raw).trim()) {
+        const list = String(raw)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        return {
+            origin: list,
+            credentials: true
+        };
+    }
+    return {
         origin: [/localhost:\d+$/, /127\.0\.0\.1:\d+$/],
         credentials: true
-    })
-);
+    };
+}
+
+app.use(cors(buildCorsOptions()));
 app.use(express.json({ limit: '32mb' }));
+
+app.use('/api/auth', authApi);
+app.use('/api/admin', adminApi);
+app.use('/api/lab', labApi);
 
 /** Single-flight scraper run (abort previous via /api/cancel). */
 let currentAbort = null;
@@ -63,10 +86,14 @@ const scheduler = createScheduler({
 });
 
 app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'genomics-dashboard' });
+    res.json({
+        ok: true,
+        service: 'nexus',
+        database: useDatabase() ? 'postgres' : 'file'
+    });
 });
 
-app.post('/api/cancel', (_req, res) => {
+app.post('/api/cancel', requireAuth, (_req, res) => {
     if (currentAbort) {
         currentAbort.abort();
         return res.json({ ok: true, message: 'Cancellation requested' });
@@ -74,39 +101,40 @@ app.post('/api/cancel', (_req, res) => {
     res.json({ ok: false, message: 'No active run' });
 });
 
-app.get('/api/scheduler', (_req, res) => {
+app.get('/api/scheduler', requireAuth, async (_req, res) => {
     try {
-        res.json(scheduler.getState());
+        res.json(await scheduler.getState());
     } catch (err) {
         res.status(500).json({ error: err.message || String(err) });
     }
 });
 
-app.put('/api/scheduler', (req, res) => {
+app.put('/api/scheduler', requireAuth, async (req, res) => {
     try {
         const raw = req.body && req.body.schedules;
         if (!Array.isArray(raw)) {
             res.status(400).json({ error: 'Body must include schedules: []' });
             return;
         }
-        const schedules = scheduler.setSchedules(raw);
+        const schedules = await scheduler.setSchedules(raw);
         res.json({ ok: true, schedules, timezone: process.env.TZ || 'Asia/Kolkata' });
     } catch (err) {
         res.status(400).json({ error: err.message || String(err) });
     }
 });
 
-app.get('/api/run-history', (_req, res) => {
+app.get('/api/run-history', requireAuth, async (_req, res) => {
     try {
-        res.json({ runs: listReportsRunsNewestFirst() });
+        const runs = await listReportsRunsNewestFirst();
+        res.json({ runs });
     } catch (err) {
         res.status(500).json({ error: err.message || String(err) });
     }
 });
 
-app.post('/api/run-history', (req, res) => {
+app.post('/api/run-history', requireAuth, async (req, res) => {
     try {
-        appendReportsRun(req.body || {});
+        await appendReportsRun(req.body || {});
         res.json({ ok: true });
     } catch (err) {
         res.status(400).json({ error: err.message || String(err) });
@@ -118,7 +146,7 @@ app.post('/api/run-history', (req, res) => {
  * Body: { date?, dateFrom?, dateTo?, businessUnit?, businessUnits?: string[], testCode?: string, headless?: boolean }
  * Response: text/event-stream (SSE) — JSON lines in `data: ...`
  */
-app.post('/api/run', async (req, res) => {
+app.post('/api/run', requireAuth, async (req, res) => {
     const controller = tryAcquireRunSlot();
     if (!controller) {
         res.status(409).json({ error: 'A run is already in progress. Cancel it first or wait.' });
@@ -135,6 +163,17 @@ app.post('/api/run', async (req, res) => {
             res.write(`data: ${JSON.stringify(obj)}\n\n`);
         } catch (_) {}
     };
+
+    /* Do NOT use req.on('close') — for POST it fires when the request body stream ends (normal), aborting the run immediately. */
+    let runCompleted = false;
+    const onClientGone = () => {
+        if (runCompleted || res.writableEnded || res.writableFinished) return;
+        try {
+            controller.abort();
+        } catch (_) {}
+    };
+    req.on('aborted', onClientGone);
+    req.socket?.once('close', onClientGone);
 
     const body = req.body || {};
     const headless = body.headless !== false;
@@ -157,10 +196,14 @@ app.post('/api/run', async (req, res) => {
     } catch (err) {
         if (err.name === 'AbortError' || controller.signal.aborted) {
             send({ type: 'cancelled', message: 'Run cancelled' });
+        } else if (err.name === 'TimeoutError') {
+            send({ type: 'error', message: err.message || String(err) });
         } else {
             send({ type: 'error', message: err.message || String(err) });
         }
     } finally {
+        runCompleted = true;
+        req.removeListener('aborted', onClientGone);
         releaseRunSlot(controller);
         try {
             res.end();
@@ -169,11 +212,11 @@ app.post('/api/run', async (req, res) => {
 });
 
 /**
- * Production UI: web/dist. Desktop sets STELLAR_SHARK_WEB_DIST before loading this module.
+ * Production UI: web/dist. Desktop sets NEXUS_WEB_DIST before loading this module.
  * Mount happens in startServer() so env is always applied (fork timing was unreliable on Windows).
  */
 function resolveWebDistDir() {
-    const fromEnv = process.env.STELLAR_SHARK_WEB_DIST;
+    const fromEnv = process.env.NEXUS_WEB_DIST;
     if (fromEnv && String(fromEnv).trim()) {
         const p = path.normalize(String(fromEnv).trim());
         if (fs.existsSync(path.join(p, 'index.html'))) return p;
@@ -197,23 +240,24 @@ function mountUiRoutesIfNeeded() {
     return webDistDir;
 }
 
-function startServer() {
+async function startServer() {
+    await migrate();
     const webDistDir = mountUiRoutesIfNeeded();
     return new Promise((resolve, reject) => {
-        const host = process.env.STELLAR_SHARK_BIND;
+        const host = process.env.NEXUS_BIND;
         const onListen = () => {
-            scheduler.startCrons();
+            scheduler.startCrons().catch((e) => console.error('[Nexus] scheduler.startCrons failed', e));
             const bound = server.address();
             const port = typeof bound === 'object' && bound ? bound.port : PORT;
             const where =
                 typeof bound === 'object' && bound && bound.address === '::'
                     ? `localhost:${port}`
                     : `${host || 'localhost'}:${port}`;
-            console.log(`[Genomics] API http://${where}`);
+            console.log(`[Nexus] API http://${where}`);
             if (webDistDir) {
-                console.log(`[Genomics] Serving UI from ${webDistDir}`);
+                console.log(`[Nexus] Serving UI from ${webDistDir}`);
             } else {
-                console.log(`[Genomics] Dev UI: run npm run dev:web (Vite proxies /api → :${port})`);
+                console.log(`[Nexus] Dev UI: run npm run dev:web (Vite proxies /api → :${port})`);
             }
             resolve(server);
         };
@@ -225,7 +269,26 @@ function startServer() {
     });
 }
 
+function registerShutdownHooks() {
+    const shutdown = async () => {
+        try {
+            if (currentAbort) {
+                try {
+                    currentAbort.abort();
+                } catch (_) {}
+            }
+        } catch (_) {}
+        try {
+            await closePool();
+        } catch (_) {}
+        process.exit(0);
+    };
+    process.once('SIGTERM', shutdown);
+    process.once('SIGINT', shutdown);
+}
+
 if (require.main === module) {
+    registerShutdownHooks();
     startServer().catch((err) => {
         console.error(err);
         process.exit(1);

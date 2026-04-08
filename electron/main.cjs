@@ -1,95 +1,121 @@
 'use strict';
 
 /**
- * Stellar Shark desktop shell: run the Express server in-process (same Node as Electron).
- * Fork + ELECTRON_RUN_AS_NODE was unreliable on Windows; env and web/dist paths must be set
- * before require('server/index.js') so UI routes mount correctly.
+ * Nexus by Stellar Infomatica — desktop shell: thin client; loads the deployed SPA from a configurable URL.
+ * The API and PostgreSQL run in Docker (or another host); this process does not start Express.
  */
 
 const { app, BrowserWindow, shell, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-
-const DEFAULT_PORT = Number(process.env.PORT || 3001);
+const https = require('https');
 
 let mainWindow = null;
-/** @type {import('http').Server | null} */
-let httpServer = null;
-let serverPort = DEFAULT_PORT;
 
 function getUserDataPath() {
     return app.getPath('userData');
 }
 
-function waitForHealth(port, maxMs = 60000) {
+function normalizeBackendUrl(raw) {
+    let s = String(raw || '').trim();
+    if (!s) throw new Error('Backend URL is empty');
+    if (!/^https?:\/\//i.test(s)) {
+        s = `https://${s}`;
+    }
+    if (!s.endsWith('/')) s += '/';
+    return s;
+}
+
+function assertBackendUrlPolicy(urlStr) {
+    let u;
+    try {
+        u = new URL(urlStr);
+    } catch (e) {
+        throw new Error(`Invalid backend URL: ${urlStr}`);
+    }
+    const host = u.hostname;
+    const local = host === '127.0.0.1' || host === 'localhost' || host === '[::1]';
+    if (app.isPackaged && u.protocol !== 'https:' && !local) {
+        throw new Error('Packaged app requires an HTTPS backend URL (http is allowed only for localhost).');
+    }
+}
+
+function readConfigFileBackendUrl() {
+    const cfgPath = path.join(getUserDataPath(), 'config.json');
+    if (!fs.existsSync(cfgPath)) return null;
+    try {
+        const j = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+        if (j && typeof j.backendUrl === 'string' && j.backendUrl.trim()) {
+            return j.backendUrl.trim();
+        }
+    } catch (_) {}
+    return null;
+}
+
+function resolveBackendUrl() {
+    const fromEnv = process.env.NEXUS_DESKTOP_BACKEND_URL;
+    if (fromEnv && String(fromEnv).trim()) {
+        const u = normalizeBackendUrl(fromEnv);
+        assertBackendUrlPolicy(u);
+        return u;
+    }
+    const fromFile = readConfigFileBackendUrl();
+    if (fromFile) {
+        const u = normalizeBackendUrl(fromFile);
+        assertBackendUrlPolicy(u);
+        return u;
+    }
+    if (!app.isPackaged) {
+        const u = normalizeBackendUrl('http://127.0.0.1:3101');
+        assertBackendUrlPolicy(u);
+        return u;
+    }
+    throw new Error(
+        'Set the backend URL:\n' +
+            '• Environment variable NEXUS_DESKTOP_BACKEND_URL, or\n' +
+            `• File ${path.join(getUserDataPath(), 'config.json')} with {"backendUrl":"https://your-server/"}`
+    );
+}
+
+function waitForHealth(baseOrigin, maxMs = 60000) {
+    const healthUrl = new URL('api/health', baseOrigin).href;
+    const u = new URL(healthUrl);
+    const lib = u.protocol === 'https:' ? https : http;
     const start = Date.now();
+
     return new Promise((resolve, reject) => {
         const tryOnce = () => {
-            const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
-                res.resume();
-                if (res.statusCode === 200) {
-                    resolve();
-                    return;
+            const req = lib.request(
+                healthUrl,
+                { method: 'GET', timeout: 8000 },
+                (res) => {
+                    res.resume();
+                    if (res.statusCode === 200) {
+                        resolve();
+                        return;
+                    }
+                    retry();
                 }
-                retry();
-            });
+            );
             req.on('error', () => retry());
-            req.setTimeout(2000, () => {
+            req.on('timeout', () => {
                 try {
                     req.destroy();
                 } catch (_) {}
                 retry();
             });
+            req.end();
         };
         const retry = () => {
             if (Date.now() - start > maxMs) {
-                reject(new Error(`Server did not respond on port ${port} within ${maxMs}ms`));
+                reject(new Error(`Server did not respond at ${healthUrl} within ${maxMs}ms`));
                 return;
             }
             setTimeout(tryOnce, 400);
         };
         tryOnce();
     });
-}
-
-async function startBackendInProcess() {
-    const appPath = app.getAppPath();
-    const userData = getUserDataPath();
-    const webDist = path.join(appPath, 'web', 'dist');
-    const indexHtml = path.join(webDist, 'index.html');
-
-    if (!fs.existsSync(indexHtml)) {
-        throw new Error(
-            `Built UI is missing (expected ${indexHtml}). Reinstall the app or rebuild with "npm run build" before packaging.`
-        );
-    }
-
-    process.env.NODE_ENV = 'production';
-    process.env.PORT = String(DEFAULT_PORT);
-    process.env.STELLAR_SHARK_USER_DATA = userData;
-    process.env.STELLAR_SHARK_DESKTOP = '1';
-    process.env.STELLAR_SHARK_WEB_DIST = webDist;
-    process.env.STELLAR_SHARK_BIND = '127.0.0.1';
-
-    const serverEntry = path.join(appPath, 'server', 'index.js');
-    delete require.cache[require.resolve(serverEntry)];
-    const { startServer } = require(serverEntry);
-
-    httpServer = await startServer();
-    const addr = httpServer.address();
-    serverPort = typeof addr === 'object' && addr && addr.port ? addr.port : DEFAULT_PORT;
-
-    await waitForHealth(serverPort);
-}
-
-function stopBackend() {
-    if (httpServer) {
-        try {
-            httpServer.close();
-        } catch (_) {}
-        httpServer = null;
-    }
 }
 
 function getWindowIconPath() {
@@ -101,7 +127,7 @@ function getWindowIconPath() {
     return undefined;
 }
 
-function createWindow() {
+function createWindow(backendUrl) {
     const icon = getWindowIconPath();
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -109,7 +135,7 @@ function createWindow() {
         minWidth: 960,
         minHeight: 640,
         show: false,
-        title: 'Stellar Shark',
+        title: 'Nexus · Stellar Infomatica',
         ...(icon ? { icon } : {}),
         webPreferences: {
             nodeIntegration: false,
@@ -119,7 +145,7 @@ function createWindow() {
 
     mainWindow.once('ready-to-show', () => mainWindow.show());
 
-    mainWindow.loadURL(`http://127.0.0.1:${serverPort}/`);
+    mainWindow.loadURL(backendUrl);
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         shell.openExternal(url);
@@ -147,29 +173,38 @@ if (!gotLock) {
             if (app.isPackaged && process.platform !== 'darwin') {
                 Menu.setApplicationMenu(null);
             }
-            await startBackendInProcess();
-            createWindow();
+            const backendUrl = resolveBackendUrl();
+            await waitForHealth(backendUrl);
+            createWindow(backendUrl);
         } catch (err) {
-            console.error('[Stellar Shark] Failed to start', err);
-            dialog.showErrorBox('Stellar Shark', `Could not start the application server:\n\n${err.message || err}`);
+            console.error('[Nexus] Failed to start', err);
+            dialog.showErrorBox(
+                'Nexus',
+                `Cannot reach the application server:\n\n${err.message || err}\n\n` +
+                    'Check NEXUS_DESKTOP_BACKEND_URL or config.json backendUrl.'
+            );
             app.quit();
         }
     });
 
     app.on('window-all-closed', () => {
-        stopBackend();
         if (process.platform !== 'darwin') {
             app.quit();
         }
     });
 
-    app.on('before-quit', () => {
-        stopBackend();
-    });
-
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            try {
+                const backendUrl = resolveBackendUrl();
+                waitForHealth(backendUrl)
+                    .then(() => createWindow(backendUrl))
+                    .catch((err) => {
+                        dialog.showErrorBox('Nexus', err.message || String(err));
+                    });
+            } catch (err) {
+                dialog.showErrorBox('Nexus', err.message || String(err));
+            }
         }
     });
 }

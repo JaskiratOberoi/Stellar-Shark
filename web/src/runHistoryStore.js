@@ -2,6 +2,8 @@
  * Run history: primary store is the API (`/api/run-history`) under server userData.
  * localStorage mirrors a cache for offline / dev without API.
  */
+import { apiFetch } from './apiClient.js';
+
 const STORAGE_KEY = 'labintel_run_history_v1';
 
 function safeParse(raw) {
@@ -23,7 +25,7 @@ export function loadRunHistory() {
  */
 export async function fetchRunHistory() {
     try {
-        const res = await fetch('/api/run-history');
+        const res = await apiFetch('/api/run-history');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         let runs = Array.isArray(data.runs) ? data.runs : [];
@@ -32,16 +34,15 @@ export async function fetchRunHistory() {
             if (local.length > 0) {
                 for (const rec of local) {
                     try {
-                        await fetch('/api/run-history', {
+                        await apiFetch('/api/run-history', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(rec)
                         });
                     } catch {
                         /* ignore */
                     }
                 }
-                const res2 = await fetch('/api/run-history');
+                const res2 = await apiFetch('/api/run-history');
                 if (res2.ok) {
                     const d2 = await res2.json();
                     runs = Array.isArray(d2.runs) ? d2.runs : runs;
@@ -64,9 +65,8 @@ export async function fetchRunHistory() {
  */
 export async function appendRunRecord(record) {
     try {
-        const res = await fetch('/api/run-history', {
+        const res = await apiFetch('/api/run-history', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(record)
         });
         if (res.ok) {

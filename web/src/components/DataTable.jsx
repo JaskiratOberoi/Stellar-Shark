@@ -1,7 +1,7 @@
 export function TableShell({ children, maxClass = 'max-h-40', className = '' }) {
     return (
         <div
-            className={`overflow-x-auto ${maxClass} overflow-y-auto log-scroll rounded-lg border border-white/5 ${className}`}
+            className={`overflow-x-auto ${maxClass} overflow-y-auto log-scroll rounded-lg border border-border ${className}`}
         >
             {children}
         </div>
@@ -16,12 +16,12 @@ export function BuSummaryTable({
     aggregate = null
 }) {
     const tableCls = variant === 'lab' ? 'data-table data-table-lab' : 'data-table';
-    const monoCls = variant === 'lab' ? 'font-mono text-slate-500' : 'font-mono text-genomics-fg-subtle';
+    const monoCls = variant === 'lab' ? 'font-mono text-ink-muted' : 'font-mono text-genomics-fg-subtle';
     const numCls =
         variant === 'lab'
-            ? 'text-right tabular-nums text-sky-400/95'
+            ? 'text-right tabular-nums text-primary'
             : 'text-right tabular-nums text-genomics-success/95';
-    const emptyCls = variant === 'lab' ? 'p-4 text-slate-500' : 'p-4 text-genomics-fg-subtle';
+    const emptyCls = variant === 'lab' ? 'p-4 text-ink-muted' : 'p-4 text-genomics-fg-subtle';
 
     return (
         <TableShell maxClass={`${maxClass} ${shellClassName}`.trim()}>
@@ -34,7 +34,7 @@ export function BuSummaryTable({
                         <th className="text-right">{variant === 'lab' ? 'Unique SIDs' : 'Unique SIDs'}</th>
                     </tr>
                 </thead>
-                <tbody className={variant === 'lab' ? 'text-slate-400' : 'text-genomics-fg-muted'}>
+                <tbody className={variant === 'lab' ? 'text-ink-secondary' : 'text-genomics-fg-muted'}>
                     {rows.length === 0 ? (
                         <tr>
                             <td colSpan={4} className={emptyCls}>
@@ -44,7 +44,7 @@ export function BuSummaryTable({
                     ) : (
                         rows.map((row) => (
                             <tr key={row.businessUnit}>
-                                <td className={variant === 'lab' ? 'font-medium text-slate-200' : undefined}>
+                                <td className={variant === 'lab' ? 'font-medium text-ink' : undefined}>
                                     {row.businessUnit}
                                 </td>
                                 <td className={monoCls}>{row.labBadge ?? '—'}</td>
@@ -56,15 +56,15 @@ export function BuSummaryTable({
                 </tbody>
                 {aggregate != null && rows.length > 0 ? (
                     <tfoot>
-                        <tr className="border-t border-white/20">
+                        <tr className="border-t border-border">
                             <td
                                 colSpan={2}
-                                className={`pt-3 font-bold text-white ${variant === 'lab' ? 'text-xs uppercase tracking-wide' : ''}`}
+                                className={`pt-3 font-bold text-ink ${variant === 'lab' ? 'text-xs uppercase tracking-wide' : ''}`}
                             >
                                 Aggregate
                             </td>
-                            <td className="pt-3 text-right font-bold tabular-nums text-white">{aggregate.samples}</td>
-                            <td className="pt-3 text-right font-bold tabular-nums text-white">{aggregate.sids}</td>
+                            <td className="pt-3 text-right font-bold tabular-nums text-ink">{aggregate.samples}</td>
+                            <td className="pt-3 text-right font-bold tabular-nums text-ink">{aggregate.sids}</td>
                         </tr>
                     </tfoot>
                 ) : null}

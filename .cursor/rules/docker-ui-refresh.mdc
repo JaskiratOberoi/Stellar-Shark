@@ -1,0 +1,15 @@
+---
+description: Rebuild SPA and refresh Docker after web UI changes
+globs: web/**
+alwaysApply: false
+---
+
+# UI + Docker refresh (Stellar-Shark)
+
+When a task modifies anything under `web/` that ships in the Vite build (`src/`, `index.html`, `tailwind.config.js`, etc.), finish by refreshing what users see in Docker:
+
+1. From the **repository root**, run: `npm run docker:ui`
+
+That script runs `npm run build` (Vite), rebuilds the `app` image (which bakes `web/dist` via the Dockerfile), and recreates the `app` container with `docker compose up -d app`.
+
+If Docker is not used and the user runs `npm run dev` / Electron only, a local `npm run build` may still be useful to verify the production bundle; follow the user’s setup when they are not on Docker.

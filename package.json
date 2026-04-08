@@ -1,28 +1,35 @@
 {
-  "name": "genomics-dashboard",
+  "name": "nexus",
   "private": true,
   "version": "1.1.2",
-  "description": "Genomics LIS daily test-count dashboard (QUGEN)",
-  "author": "QUGEN",
+  "description": "Nexus by Stellar Infomatica — Genomics LIS daily test-count dashboard",
+  "author": "Stellar Infomatica",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:web\"",
-    "counter": "concurrently -k -n server,web -c cyan,magenta \"npm run dev:server\" \"wait-on http-get://127.0.0.1:3001/api/health && npm run dev --prefix web\"",
+    "counter": "concurrently -k -n server,web -c cyan,magenta \"npm run dev:server\" \"wait-on http-get://127.0.0.1:3101/api/health && npm run dev --prefix web\"",
     "dev:server": "node server/index.js",
     "dev:web": "npm run dev --prefix web",
     "build": "npm run build --prefix web",
     "start": "cross-env NODE_ENV=production node server/index.js",
     "scrape": "node scraper/genomicsStatsScraper.js",
     "discover-badges": "node scripts/discoverLabBadges.js",
-    "desktop:dev": "npm run build && electron .",
+    "desktop:dev": "electron .",
     "icon:prepare": "node scripts/prep-icon.js",
-    "desktop:dist": "npm run icon:prepare && npm run build && electron-builder --win"
+    "desktop:dist": "npm run icon:prepare && electron-builder --win",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:ui": "npm run build && docker compose build app && docker compose up -d app",
+    "verify:bu": "node scripts/verify-bu-config.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
     "node-cron": "^3.0.3",
+    "pg": "^8.20.0",
     "puppeteer": "^21.11.0"
   },
   "devDependencies": {
@@ -30,33 +37,22 @@
     "cross-env": "^7.0.3",
     "electron": "^33.4.1",
     "electron-builder": "^25.1.8",
-    "wait-on": "^8.0.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.qugen.stellar-shark",
-    "productName": "Stellar Shark",
-    "copyright": "Copyright © QUGEN",
+    "appId": "com.qugen.nexus",
+    "productName": "Nexus",
+    "copyright": "Copyright © Stellar Infomatica",
     "asar": false,
     "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
     "files": [
-      "**/*",
-      "!.env",
-      "!**/.env",
-      "!web/src/**",
-      "!web/node_modules/**",
-      "!web/vite.config.js",
-      "!web/tailwind.config.js",
-      "!web/postcss.config.js",
-      "!release/**",
-      "!**/.git/**",
-      "!**/.cursor/**",
-      "!**/*.md",
-      "!**/AGENTS.md",
-      "!**/CLAUDE.md"
+      "electron/**/*",
+      "package.json",
+      "build/**/*"
     ],
     "win": {
       "target": [
@@ -73,7 +69,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Stellar Shark",
+      "shortcutName": "Nexus",
       "installerLanguages": [
         "en_US"
       ],

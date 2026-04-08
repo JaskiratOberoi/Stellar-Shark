@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import BUSINESS_UNIT_OPTIONS from '../../../../config/businessUnits.json';
+import { apiFetch } from '../../apiClient.js';
 import { TestCodePresets } from '../TestCodePresets.jsx';
 
 function buEntryLabel(entry) {
@@ -29,7 +30,7 @@ function presetLabel(id) {
 
 function schedulerFetchError(status) {
     if (status === 404) {
-        return 'API returned 404. Run the Node server on port 3001 (from the repo root: npm run dev, or npm run dev:server). Restart it if it was started before the Scheduler was added. If you use vite preview, pull latest and restart preview so /api is proxied.';
+        return 'API returned 404. Run the Node server on port 3101 (from the repo root: npm run dev, or npm run dev:server). Restart it if it was started before the Scheduler was added. If you use vite preview, pull latest and restart preview so /api is proxied.';
     }
     return `HTTP ${status}`;
 }
@@ -54,7 +55,7 @@ export function LabSchedulerView() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/scheduler');
+            const res = await apiFetch('/api/scheduler');
             if (!res.ok) throw new Error(schedulerFetchError(res.status));
             const data = await res.json();
             setTimezone(data.timezone || 'Asia/Kolkata');
@@ -85,9 +86,8 @@ export function LabSchedulerView() {
             setSaving(true);
             setError(null);
             try {
-                const res = await fetch('/api/scheduler', {
+                const res = await apiFetch('/api/scheduler', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schedules: nextSchedules })
                 });
                 const data = await res.json().catch(() => ({}));
@@ -162,7 +162,7 @@ export function LabSchedulerView() {
         <div className="space-y-6 min-h-0 flex flex-col flex-1">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Scheduler</h2>
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-ink">Scheduler</h2>
                     <p className="text-sm text-slate-500 mt-1 max-w-2xl">
                         Run the LIS bot at fixed clock times in the server timezone (
                         <span className="text-slate-400 font-mono text-xs">{timezone}</span>

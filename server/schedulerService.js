@@ -6,14 +6,16 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const { computeRangeForPreset } = require('./labDateRange');
 const { appendReportsRun } = require('./runHistoryFile');
+const { getPool, useDatabase } = require('./db/pool');
 
-const DATA_DIR = process.env.STELLAR_SHARK_USER_DATA
-    ? path.join(process.env.STELLAR_SHARK_USER_DATA, 'data')
+const DATA_DIR = process.env.NEXUS_USER_DATA
+    ? path.join(process.env.NEXUS_USER_DATA, 'data')
     : path.join(__dirname, '..', 'data');
 const SCHEDULES_PATH = path.join(DATA_DIR, 'scheduler.json');
 const RUNS_PATH = path.join(DATA_DIR, 'scheduler-runs.json');
 
 const MAX_RUNS = 500;
+const MAX_SCHEDULER_QUEUE = Math.max(1, Number(process.env.NEXUS_SCHEDULER_QUEUE_MAX || 10));
 
 function ensureDataDir() {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -28,31 +30,135 @@ function loadJson(file, fallback) {
     }
 }
 
-function loadSchedulesFromDisk() {
+function loadSchedulesFile() {
     const j = loadJson(SCHEDULES_PATH, { schedules: [] });
     return Array.isArray(j.schedules) ? j.schedules : [];
 }
 
-function saveSchedulesToDisk(schedules) {
+function saveSchedulesFile(schedules) {
     ensureDataDir();
     fs.writeFileSync(SCHEDULES_PATH, JSON.stringify({ schedules }, null, 2), 'utf8');
 }
 
-function loadRunsFromDisk() {
+function loadRunsFile() {
     const j = loadJson(RUNS_PATH, { runs: [] });
     return Array.isArray(j.runs) ? j.runs : [];
 }
 
-function saveRunsToDisk(runs) {
+function saveRunsFile(runs) {
     ensureDataDir();
     fs.writeFileSync(RUNS_PATH, JSON.stringify({ runs }, null, 2), 'utf8');
 }
 
-function appendRunRecord(entry) {
-    const runs = loadRunsFromDisk();
+async function loadSchedules() {
+    if (useDatabase()) {
+        const pool = getPool();
+        const { rows } = await pool.query(`
+            SELECT id, enabled, time_local, label, business_units, test_code, headless, date_preset
+            FROM scheduler_schedules
+            ORDER BY id
+        `);
+        return rows.map((r) => ({
+            id: r.id,
+            enabled: r.enabled,
+            timeLocal: r.time_local,
+            label: r.label,
+            businessUnits: Array.isArray(r.business_units) ? r.business_units : r.business_units,
+            testCode: r.test_code,
+            headless: r.headless,
+            datePreset: r.date_preset
+        }));
+    }
+    return loadSchedulesFile();
+}
+
+async function saveSchedules(schedules) {
+    if (useDatabase()) {
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('DELETE FROM scheduler_schedules');
+            for (const s of schedules) {
+                await client.query(
+                    `INSERT INTO scheduler_schedules (id, enabled, time_local, label, business_units, test_code, headless, date_preset)
+                     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+                    [
+                        s.id,
+                        s.enabled,
+                        s.timeLocal,
+                        s.label,
+                        JSON.stringify(s.businessUnits || []),
+                        s.testCode,
+                        s.headless,
+                        s.datePreset
+                    ]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+        return;
+    }
+    saveSchedulesFile(schedules);
+}
+
+async function appendRunRecord(entry) {
+    if (useDatabase()) {
+        const pool = getPool();
+        await pool.query(
+            `INSERT INTO scheduler_runs (id, run_at, schedule_id, schedule_label, status, message, result)
+             VALUES ($1, $2::timestamptz, $3, $4, $5, $6, $7::jsonb)`,
+            [
+                entry.id,
+                entry.runAt,
+                entry.scheduleId,
+                entry.scheduleLabel,
+                entry.status,
+                entry.message != null ? entry.message : null,
+                entry.result != null ? JSON.stringify(entry.result) : null
+            ]
+        );
+        await pool.query(`
+            DELETE FROM scheduler_runs
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (ORDER BY run_at DESC) AS rn
+                    FROM scheduler_runs
+                ) t WHERE rn > $1
+            )
+        `, [MAX_RUNS]);
+        return;
+    }
+    const runs = loadRunsFile();
     runs.push(entry);
     const trimmed = runs.length > MAX_RUNS ? runs.slice(-MAX_RUNS) : runs;
-    saveRunsToDisk(trimmed);
+    saveRunsFile(trimmed);
+}
+
+async function loadRunsForState() {
+    if (useDatabase()) {
+        const pool = getPool();
+        const { rows } = await pool.query(`
+            SELECT id, run_at, schedule_id, schedule_label, status, message, result
+            FROM scheduler_runs
+            ORDER BY run_at ASC
+        `);
+        return rows.map((r) => ({
+            id: r.id,
+            runAt: new Date(r.run_at).toISOString(),
+            scheduleId: r.schedule_id,
+            scheduleLabel: r.schedule_label,
+            status: r.status,
+            ...(r.message != null ? { message: r.message } : {}),
+            ...(r.result != null ? { result: r.result } : {})
+        }));
+    }
+    return loadRunsFile();
 }
 
 function parseTimeLocal(timeLocal) {
@@ -134,7 +240,7 @@ function createScheduler(deps) {
     async function runScheduledJob({ schedule }) {
         const slot = tryAcquireRunSlot();
         if (!slot) {
-            appendRunRecord({
+            await appendRunRecord({
                 id:
                     typeof crypto.randomUUID === 'function'
                         ? crypto.randomUUID()
@@ -162,7 +268,7 @@ function createScheduler(deps) {
                 signal: slot.signal,
                 onProgress: () => {}
             });
-            appendRunRecord({
+            await appendRunRecord({
                 id: runId,
                 runAt,
                 scheduleId: schedule.id,
@@ -171,7 +277,7 @@ function createScheduler(deps) {
                 result
             });
             try {
-                appendReportsRun({
+                await appendReportsRun({
                     id: runId,
                     savedAt: runAt,
                     result,
@@ -186,7 +292,7 @@ function createScheduler(deps) {
         } catch (err) {
             const name = err && err.name;
             if (name === 'AbortError') {
-                appendRunRecord({
+                await appendRunRecord({
                     id: runId,
                     runAt: new Date().toISOString(),
                     scheduleId: schedule.id,
@@ -195,7 +301,7 @@ function createScheduler(deps) {
                     message: 'Run was cancelled.'
                 });
             } else {
-                appendRunRecord({
+                await appendRunRecord({
                     id: runId,
                     runAt: new Date().toISOString(),
                     scheduleId: schedule.id,
@@ -218,10 +324,10 @@ function createScheduler(deps) {
         cronTasks = [];
     }
 
-    function startCrons() {
+    async function startCrons() {
         stopCrons();
         const tz = process.env.TZ || 'Asia/Kolkata';
-        const schedules = loadSchedulesFromDisk();
+        const schedules = await loadSchedules();
 
         for (const s of schedules) {
             if (!s.enabled) continue;
@@ -234,6 +340,23 @@ function createScheduler(deps) {
             const task = cron.schedule(
                 expr,
                 () => {
+                    if (jobQueue.length >= MAX_SCHEDULER_QUEUE) {
+                        console.warn(
+                            `[Scheduler] Queue cap (${MAX_SCHEDULER_QUEUE}) reached; skipping tick for "${scheduleSnapshot.label || scheduleSnapshot.timeLocal}". Raise NEXUS_SCHEDULER_QUEUE_MAX if needed.`
+                        );
+                        appendRunRecord({
+                            id:
+                                typeof crypto.randomUUID === 'function'
+                                    ? crypto.randomUUID()
+                                    : `run-${Date.now()}`,
+                            runAt: new Date().toISOString(),
+                            scheduleId: scheduleSnapshot.id,
+                            scheduleLabel: scheduleSnapshot.label || scheduleSnapshot.timeLocal,
+                            status: 'skipped',
+                            message: `Scheduler queue full (max ${MAX_SCHEDULER_QUEUE}).`
+                        }).catch(() => {});
+                        return;
+                    }
                     jobQueue.push({ schedule: scheduleSnapshot });
                     drainQueue().catch(() => {});
                 },
@@ -243,15 +366,16 @@ function createScheduler(deps) {
         }
     }
 
-    function getState() {
+    async function getState() {
+        const runs = await loadRunsForState();
         return {
             timezone: process.env.TZ || 'Asia/Kolkata',
-            schedules: loadSchedulesFromDisk(),
-            runs: loadRunsFromDisk().slice().reverse()
+            schedules: await loadSchedules(),
+            runs: runs.slice().reverse()
         };
     }
 
-    function setSchedules(rawList) {
+    async function setSchedules(rawList) {
         if (!Array.isArray(rawList)) {
             throw new Error('Expected { schedules: [...] }');
         }
@@ -259,8 +383,8 @@ function createScheduler(deps) {
         for (const raw of rawList) {
             next.push(normalizeSchedule(raw));
         }
-        saveSchedulesToDisk(next);
-        startCrons();
+        await saveSchedules(next);
+        await startCrons();
         return next;
     }
 

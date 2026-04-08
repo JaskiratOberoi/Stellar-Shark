@@ -10,16 +10,16 @@ body,
 
 body {
     @apply font-sans antialiased overflow-x-hidden;
-    background: theme('colors.lab.app');
-    color: theme('colors.lab.ink');
+    background: theme('colors.surface.muted');
+    color: theme('colors.ink.DEFAULT');
 }
 
-/* Subtle grid — Stellar Shark shell */
+/* Light CRM-style background */
 .lab-app-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
-    background: theme('colors.lab.app');
+    background: linear-gradient(165deg, #f8fafc 0%, #f1f5f9 45%, #eef2f7 100%);
     pointer-events: none;
 }
 
@@ -28,10 +28,10 @@ body {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(ellipse 100% 80% at 50% 0%, black 20%, transparent 70%);
+        linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 25%, transparent 75%);
 }
 
 .genomics-bg {
@@ -47,28 +47,15 @@ body {
     }
 }
 
-/* Legacy glass panels — retained for any nested use */
+/* Glass panels — light variant */
 .glass-panel {
-    @apply backdrop-blur-xl rounded-panel-lg border;
-    border-color: theme('colors.genomics.border');
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.72) 0%, rgba(30, 41, 59, 0.42) 100%);
-    box-shadow:
-        theme('boxShadow.panel-inset'),
-        0 20px 40px -16px rgba(0, 0, 0, 0.55);
+    @apply backdrop-blur-md rounded-panel-lg border border-border bg-white/90;
+    box-shadow: theme('boxShadow.card');
 }
 
 .glass-panel-emphasis {
-    @apply backdrop-blur-2xl rounded-[1.35rem] border;
-    border-color: theme('colors.genomics.border-strong');
-    background: linear-gradient(
-        155deg,
-        rgba(30, 27, 75, 0.5) 0%,
-        rgba(15, 23, 42, 0.82) 48%,
-        rgba(49, 46, 129, 0.32) 100%
-    );
-    box-shadow:
-        theme('boxShadow.glow-accent'),
-        theme('boxShadow.panel-inset');
+    @apply backdrop-blur-xl rounded-[1rem] border border-border bg-white;
+    box-shadow: theme('boxShadow.card');
 }
 
 .glass-panel-strong {
@@ -77,7 +64,7 @@ body {
 
 .log-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(56, 189, 248, 0.35) transparent;
+    scrollbar-color: rgba(37, 99, 235, 0.25) transparent;
 }
 
 .log-scroll::-webkit-scrollbar {
@@ -85,44 +72,59 @@ body {
 }
 
 .log-scroll::-webkit-scrollbar-thumb {
-    background: rgba(56, 189, 248, 0.35);
+    background: rgba(37, 99, 235, 0.25);
     border-radius: 999px;
 }
 
 @layer components {
     .input-field {
-        @apply w-full rounded-xl bg-slate-950/60 border px-4 py-3 text-genomics-fg placeholder:text-genomics-fg-subtle transition-shadow;
-        border-color: theme('colors.genomics.border');
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:border-genomics-border-strong;
+        @apply w-full rounded-xl bg-white border border-border px-4 py-3 text-ink placeholder:text-ink-faint transition-shadow;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary;
     }
 
     .btn-ghost {
-        @apply rounded-lg text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] disabled:opacity-40;
-        border-color: rgba(255, 255, 255, 0.12);
-        @apply text-slate-400 hover:bg-white/5 hover:text-slate-100;
+        @apply rounded-xl text-xs font-medium border border-border bg-white transition-colors;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-40;
+        @apply text-ink-secondary hover:bg-surface-muted hover:border-border-strong;
     }
 
     .btn-primary {
-        @apply rounded-xl font-semibold text-white px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-950/50 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply rounded-xl font-semibold text-white px-6 py-3 bg-primary shadow-md transition-transform;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
     }
 
     .btn-lab-run {
-        @apply w-full rounded-xl font-semibold text-white py-3.5 px-4 text-sm tracking-wide transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d18] disabled:opacity-45 disabled:cursor-not-allowed;
-        background: linear-gradient(105deg, #38bdf8 0%, #6366f1 45%, #8b5cf6 100%);
-        box-shadow: 0 8px 32px -8px rgba(56, 189, 248, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        @apply w-full rounded-xl font-semibold text-white py-3.5 px-4 text-sm tracking-wide transition-opacity;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-45 disabled:cursor-not-allowed;
+        background: linear-gradient(105deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+        box-shadow: 0 8px 28px -8px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     }
 
     .lab-card {
-        @apply rounded-2xl border p-5 min-h-0 flex flex-col;
-        border-color: theme('colors.lab.card-border');
-        background: theme('colors.lab.card');
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        @apply rounded-2xl border p-5 min-h-0 flex flex-col bg-white;
+        border-color: theme('colors.border.DEFAULT');
+        box-shadow: theme('boxShadow.card');
     }
 
     .lab-input {
-        @apply w-full rounded-lg border px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40;
-        border-color: rgba(255, 255, 255, 0.12);
-        background: rgba(2, 6, 23, 0.5);
+        @apply w-full rounded-lg border px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30;
+        border-color: theme('colors.border.DEFAULT');
+        background: theme('colors.surface.DEFAULT');
+    }
+
+    /* Native selects: room for chevron, consistent with inputs (Windows default arrow is easy to misread). */
+    select.lab-input {
+        @apply appearance-none cursor-pointer pr-10;
+        background-color: theme('colors.surface.DEFAULT');
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.65rem center;
+        background-size: 1rem 1rem;
+    }
+
+    select.lab-input:disabled {
+        @apply cursor-not-allowed opacity-60;
     }
 
     .data-table {
@@ -130,8 +132,8 @@ body {
     }
 
     .data-table thead {
-        @apply text-lab-subtle sticky top-0 z-[1];
-        background: rgba(15, 23, 42, 0.98);
+        @apply text-ink-muted sticky top-0 z-[1];
+        background: theme('colors.surface.muted');
     }
 
     .data-table th,
@@ -140,10 +142,10 @@ body {
     }
 
     .data-table tbody tr {
-        @apply border-t border-white/5;
+        @apply border-t border-border;
     }
 
     .data-table-lab thead {
-        @apply text-[10px] font-semibold uppercase tracking-wider text-slate-500;
+        @apply text-[10px] font-semibold uppercase tracking-wider text-ink-muted;
     }
 }
