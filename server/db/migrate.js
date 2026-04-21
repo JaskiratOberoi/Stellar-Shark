@@ -196,6 +196,36 @@ async function migrate() {
             CREATE INDEX IF NOT EXISTS idx_lab_entries_bu_date ON lab_entries (bu_id, date DESC);
         `);
 
+        await client.query(`
+            ALTER TABLE lab_entries
+              ADD COLUMN IF NOT EXISTS entry_kind TEXT NOT NULL DEFAULT 'parameter'
+                CHECK (entry_kind IN ('parameter','kits','qc','calibration','repeat'));
+        `);
+        // CHECK constraints are not refreshed by ADD COLUMN IF NOT EXISTS, so on
+        // existing databases we drop and recreate it to admit 'repeat'.
+        await client.query(`
+            ALTER TABLE lab_entries DROP CONSTRAINT IF EXISTS lab_entries_entry_kind_check;
+        `);
+        await client.query(`
+            ALTER TABLE lab_entries ADD CONSTRAINT lab_entries_entry_kind_check
+              CHECK (entry_kind IN ('parameter','kits','qc','calibration','repeat'));
+        `);
+        await client.query(`
+            ALTER TABLE lab_entries
+              ADD COLUMN IF NOT EXISTS test_code TEXT;
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_lab_entries_test_code
+              ON lab_entries (test_code) WHERE test_code IS NOT NULL;
+        `);
+        await client.query(`
+            UPDATE lab_entries
+               SET entry_kind = 'kits'
+             WHERE entry_kind = 'parameter'
+               AND parameter_id IS NULL
+               AND kits_used > 0;
+        `);
+
         // daily_validation.shark_count holds LIS sample totals from the Teller counter (legacy column name).
         await client.query(`
             CREATE TABLE IF NOT EXISTS daily_validation (

@@ -101,7 +101,7 @@ async function recomputeLabCountsForDate(pool, date) {
     const r = await pool.query(
         `SELECT bu_id, machine_id, COALESCE(SUM(kits_used), 0)::int AS kits_used
          FROM lab_entries
-         WHERE date = $1::date
+         WHERE date = $1::date AND entry_kind = 'kits'
          GROUP BY bu_id, machine_id`,
         [dateStr]
     );

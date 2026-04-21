@@ -29,7 +29,7 @@ const { createScheduler } = require('./schedulerService');
 const { appendReportsRun, listReportsRunsNewestFirst } = require('./runHistoryFile');
 const { migrate } = require('./db/migrate');
 const { closePool, useDatabase } = require('./db/pool');
-const { requireAuth } = require('./auth');
+const { requireAuth, requireRole } = require('./auth');
 const authApi = require('./routes/authApi');
 const adminApi = require('./routes/adminApi');
 const labApi = require('./routes/labApi');
@@ -93,7 +93,11 @@ app.get('/api/health', (_req, res) => {
     });
 });
 
-app.post('/api/cancel', requireAuth, (_req, res) => {
+// Teller (scraper / scheduler / run history) endpoints are restricted to
+// super_admin. Lab technicians use the /api/lab/* surface instead.
+const requireTellerAccess = [requireAuth, requireRole('super_admin')];
+
+app.post('/api/cancel', requireTellerAccess, (_req, res) => {
     if (currentAbort) {
         currentAbort.abort();
         return res.json({ ok: true, message: 'Cancellation requested' });
@@ -101,7 +105,7 @@ app.post('/api/cancel', requireAuth, (_req, res) => {
     res.json({ ok: false, message: 'No active run' });
 });
 
-app.get('/api/scheduler', requireAuth, async (_req, res) => {
+app.get('/api/scheduler', requireTellerAccess, async (_req, res) => {
     try {
         res.json(await scheduler.getState());
     } catch (err) {
@@ -109,7 +113,7 @@ app.get('/api/scheduler', requireAuth, async (_req, res) => {
     }
 });
 
-app.put('/api/scheduler', requireAuth, async (req, res) => {
+app.put('/api/scheduler', requireTellerAccess, async (req, res) => {
     try {
         const raw = req.body && req.body.schedules;
         if (!Array.isArray(raw)) {
@@ -123,7 +127,7 @@ app.put('/api/scheduler', requireAuth, async (req, res) => {
     }
 });
 
-app.get('/api/run-history', requireAuth, async (_req, res) => {
+app.get('/api/run-history', requireTellerAccess, async (_req, res) => {
     try {
         const runs = await listReportsRunsNewestFirst();
         res.json({ runs });
@@ -132,7 +136,7 @@ app.get('/api/run-history', requireAuth, async (_req, res) => {
     }
 });
 
-app.post('/api/run-history', requireAuth, async (req, res) => {
+app.post('/api/run-history', requireTellerAccess, async (req, res) => {
     try {
         await appendReportsRun(req.body || {});
         res.json({ ok: true });
@@ -146,7 +150,7 @@ app.post('/api/run-history', requireAuth, async (req, res) => {
  * Body: { date?, dateFrom?, dateTo?, businessUnit?, businessUnits?: string[], testCode?: string, headless?: boolean }
  * Response: text/event-stream (SSE) — JSON lines in `data: ...`
  */
-app.post('/api/run', requireAuth, async (req, res) => {
+app.post('/api/run', requireTellerAccess, async (req, res) => {
     const controller = tryAcquireRunSlot();
     if (!controller) {
         res.status(409).json({ error: 'A run is already in progress. Cancel it first or wait.' });
