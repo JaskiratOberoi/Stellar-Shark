@@ -349,19 +349,24 @@ export function TellerDashboard() {
     ];
 
     return (
-        <div className="relative min-h-dvh flex flex-col md:h-dvh md:max-h-dvh md:overflow-hidden text-ink">
-            <div className="lab-app-bg genomics-bg" aria-hidden />
+        <div className="relative min-h-dvh flex flex-col md:h-dvh md:max-h-dvh md:overflow-hidden text-ink bg-bg">
+            <div className="nexus-bg" aria-hidden />
 
             <div className="relative z-10 flex flex-1 min-h-0 min-w-0 flex-col md:flex-row">
-                <aside className="w-full md:w-[320px] md:shrink-0 border-b md:border-b-0 md:border-r border-border bg-white flex flex-col max-h-[55dvh] md:max-h-none overflow-y-auto log-scroll shadow-card">
-                    <div className="p-5 border-b border-border">
-                        <h1 className="font-display text-xl font-bold text-ink tracking-tight">
-                            Teller{MID} Counter
-                        </h1>
-                        <p className="text-xs text-ink-muted mt-1">
-                            Nexus{MID} Stellar Infomatica
+                <aside className="w-full md:w-[320px] md:shrink-0 border-b md:border-b-0 md:border-r border-ink bg-surface flex flex-col max-h-[55dvh] md:max-h-none overflow-y-auto log-scroll">
+                    <div className="p-5 border-b border-rule-soft">
+                        <p className="nexus-eyebrow">
+                            <span className="text-ink">02</span>
+                            <span className="text-ink-3 mx-1">/</span>
+                            <span>Teller / Counter</span>
                         </p>
-                        <p className="text-[10px] font-mono text-ink-faint mt-0.5">v2.5.0</p>
+                        <h1 className="mt-3 font-display font-bold text-display-2 text-ink leading-[0.95] tracking-[-0.03em]">
+                            Console
+                        </h1>
+                        <p className="font-mono uppercase text-eyebrow text-ink-3 mt-2">
+                            Nexus <span className="text-ink-3">/</span> Stellar Infomatica
+                        </p>
+                        <p className="font-mono text-eyebrow text-ink-3 mt-1 num">v2.5.0</p>
                     </div>
 
                     <div className="p-5 space-y-6 flex-1 flex flex-col">
@@ -501,7 +506,7 @@ export function TellerDashboard() {
                     </div>
                 </aside>
 
-                <main className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8 bg-surface-muted/80">
+                <main className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8 bg-bg">
                     <LabTopNav
                         activeTab={activeTab}
                         onTabChange={setActiveTab}
@@ -511,13 +516,19 @@ export function TellerDashboard() {
 
                     {activeTab === 'dashboard' ? (
                         <>
-                            <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                            <header className="flex flex-wrap items-end justify-between gap-4 mb-6 pb-4 border-b border-ink">
                                 <div>
-                                    <h2 className="font-display text-2xl md:text-3xl font-bold text-ink">
-                                        Daily test volume
+                                    <p className="nexus-eyebrow">
+                                        <span className="text-ink">01</span>
+                                        <span className="text-ink-3 mx-1">/</span>
+                                        <span>Daily test volume</span>
+                                    </p>
+                                    <h2 className="mt-2 font-display font-bold text-display-1 text-ink leading-[0.95] tracking-[-0.03em]">
+                                        Operations
                                     </h2>
-                                    <p className="text-sm text-ink-muted mt-1">
-                                        Genomics{MID} LIS{MID} Precision Diagnostic Analytics
+                                    <p className="font-mono uppercase text-eyebrow text-ink-3 mt-2">
+                                        Genomics <span className="text-ink-3">/</span> LIS{' '}
+                                        <span className="text-ink-3">/</span> Precision diagnostics
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">

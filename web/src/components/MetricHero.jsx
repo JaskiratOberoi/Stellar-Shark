@@ -1,43 +1,60 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
+/**
+ * Editorial hero metric -- giant tabular numerals with per-mount tick animation.
+ * Treats the number as type, not data.
+ */
 export function MetricHero({ liveTotal, liveSids, liveBu, liveStatus, multiBu, running, compact = false }) {
+    const reduce = useReducedMotion();
     const numCls = compact
-        ? 'font-display text-4xl sm:text-5xl font-bold text-white tabular-nums mt-0.5 leading-none'
-        : 'font-display text-5xl md:text-7xl font-bold text-white tabular-nums mt-1';
-    const labelCls = compact
-        ? 'text-indigo-200/85 text-[10px] sm:text-xs font-medium uppercase tracking-wider'
-        : 'text-indigo-200/85 text-sm font-medium uppercase tracking-wider';
-    const sideCls = compact
-        ? 'text-right text-[10px] sm:text-xs text-genomics-fg-muted space-y-0.5'
-        : 'text-right text-sm text-genomics-fg-muted space-y-1';
+        ? 'font-display font-bold text-5xl sm:text-6xl text-ink num leading-[0.9] tracking-[-0.04em]'
+        : 'font-display font-bold text-display-1 md:text-display-hero text-ink num leading-[0.9] tracking-[-0.04em]';
+    const labelCls = 'font-mono uppercase text-eyebrow text-ink-3';
+    const value = liveTotal != null ? liveTotal : '—';
 
     return (
-        <div className={`flex flex-col sm:flex-row sm:items-end sm:justify-between ${compact ? 'gap-2 mb-1' : 'gap-4 mb-2'}`}>
+        <div
+            className={`relative grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end border-b border-rule-soft pb-4 ${
+                compact ? '' : 'pb-6'
+            }`}
+        >
             <div className="min-w-0">
-                <p className={labelCls}>{multiBu ? 'Total samples (selected BUs)' : 'Total samples'}</p>
+                <p className={labelCls}>
+                    {multiBu ? 'Total samples / selected BUs' : 'Total samples'}
+                </p>
                 <AnimatePresence mode="wait">
-                    <motion.p
-                        key={liveTotal ?? 'empty'}
-                        initial={{ opacity: 0, y: compact ? 6 : 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: compact ? -6 : -12 }}
-                        className={numCls}
-                    >
-                        {liveTotal != null ? liveTotal : '—'}
-                    </motion.p>
+                    {reduce ? (
+                        <p key={value} className={numCls}>
+                            {value}
+                        </p>
+                    ) : (
+                        <motion.p
+                            key={value}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.35, ease: [0.65, 0, 0.35, 1] }}
+                            className={`mt-2 ${numCls}`}
+                        >
+                            {value}
+                        </motion.p>
+                    )}
                 </AnimatePresence>
             </div>
-            <div className={sideCls}>
-                <p>
-                    SIDs: <span className="text-genomics-success tabular-nums">{liveSids ?? '—'}</span>
-                </p>
-                <p>
-                    BU: <span className="text-amber-200/90">{liveBu || (running ? '…' : '—')}</span>
-                </p>
-                <p>
-                    Status: <span className="text-fuchsia-300/95">{liveStatus || (running ? '…' : '—')}</span>
-                </p>
-            </div>
+            <dl className="grid grid-cols-3 sm:flex sm:flex-col sm:items-end sm:text-right gap-3 sm:gap-1.5 font-mono text-eyebrow uppercase">
+                <div>
+                    <dt className="text-ink-3">SIDs</dt>
+                    <dd className="text-ink num text-sm">{liveSids ?? '—'}</dd>
+                </div>
+                <div>
+                    <dt className="text-ink-3">BU</dt>
+                    <dd className="text-ink text-sm">{liveBu || (running ? '…' : '—')}</dd>
+                </div>
+                <div>
+                    <dt className="text-ink-3">Status</dt>
+                    <dd className="text-accent text-sm">{liveStatus || (running ? '…' : '—')}</dd>
+                </div>
+            </dl>
         </div>
     );
 }

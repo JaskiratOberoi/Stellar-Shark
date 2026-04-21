@@ -75,28 +75,31 @@ function RunDetailCard({ entry }) {
     };
 
     return (
-        <article className="lab-card border border-white/[0.06] overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/[0.08] flex flex-wrap items-start justify-between gap-3">
+        <article className="border border-rule-soft bg-surface overflow-hidden">
+            <div className="px-4 py-3 border-b border-rule-soft bg-surface-2 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-mono text-sky-400/90">{finished}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-white/15 text-slate-400">
+                        <span className="font-mono text-eyebrow uppercase text-ink num">{finished}</span>
+                        <span className="font-mono text-eyebrow uppercase px-2 py-0.5 border border-rule-soft text-ink-2">
                             {sourceLabel(entry)}
                         </span>
                         {entry.scheduleLabel ? (
-                            <span className="text-[10px] text-slate-500">{entry.scheduleLabel}</span>
+                            <span className="font-mono text-eyebrow uppercase text-ink-3">
+                                {entry.scheduleLabel}
+                            </span>
                         ) : null}
                     </div>
-                    <p className="text-sm text-white mt-2 font-medium">
-                        Worksheet range: <span className="text-slate-300 font-mono">{rangeLabel}</span>
+                    <p className="text-sm text-ink mt-2 font-medium">
+                        Worksheet range:{' '}
+                        <span className="text-ink-2 font-mono num">{rangeLabel}</span>
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Test filter: <span className="text-slate-400 font-mono">{testFilter}</span>
+                    <p className="text-xs text-ink-3 mt-1">
+                        Test filter: <span className="text-ink-2 font-mono">{testFilter}</span>
                         {entry.datePreset ? (
                             <>
                                 {' '}
-                                · Timeframe:{' '}
-                                <span className="text-slate-400">
+                                <span className="text-ink-3">/</span> Timeframe:{' '}
+                                <span className="text-ink-2">
                                     {PRESET_SHORT[entry.datePreset] || entry.datePreset}
                                 </span>
                             </>
@@ -104,29 +107,31 @@ function RunDetailCard({ entry }) {
                     </p>
                 </div>
                 <div className="text-right">
-                    <p className="text-2xl font-bold text-white tabular-nums">{r.totalTests ?? '—'}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500">samples</p>
-                    <p className="text-xs text-slate-400 mt-1 tabular-nums">{r.uniqueSids ?? '—'} unique SIDs</p>
+                    <p className="font-display font-bold text-3xl text-ink num leading-none">
+                        {r.totalTests ?? '—'}
+                    </p>
+                    <p className="font-mono uppercase text-eyebrow text-ink-3 mt-1">samples</p>
+                    <p className="text-xs text-ink-2 mt-2 num">
+                        {r.uniqueSids ?? '—'} unique SIDs
+                    </p>
                     <button
                         type="button"
                         onClick={downloadOne}
-                        className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-sky-400 hover:text-sky-300"
+                        className="mt-2 font-mono text-eyebrow uppercase text-ink hover:text-accent transition-colors duration-150 underline-offset-4 underline decoration-1"
                     >
                         Download JSON
                     </button>
                 </div>
             </div>
-            <div className="px-4 py-3 space-y-4">
+            <div className="px-4 py-4 space-y-4">
                 <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                        Per business unit
-                    </h4>
+                    <p className="nexus-eyebrow mb-2">Per business unit</p>
                     <BuSummaryTable rows={buRows} variant="lab" aggregate={aggregate} maxClass="max-h-56 mb-0" />
                 </div>
                 <details className="group">
-                    <summary className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                    <summary className="nexus-eyebrow cursor-pointer list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
                         <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
-                        Grid scan (technical)
+                        Grid scan / technical
                     </summary>
                     <div className="mt-3">
                         <GridScanTable rows={perStatusRows(r)} maxClass="max-h-40" />
@@ -210,20 +215,21 @@ export function LabReportsView({ refreshKey = 0 }) {
                 <button
                     type="button"
                     onClick={() => void downloadFullHistory()}
-                    className="shrink-0 px-4 py-2 rounded-lg border border-white/15 text-xs font-semibold uppercase tracking-wider text-sky-400 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                    className="nexus-btn-ghost"
                 >
                     Export history JSON
                 </button>
             </div>
 
-            <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+            <div className="flex items-center justify-between gap-2 font-mono text-eyebrow uppercase text-ink-3">
                 <span>
-                    {history.length} run{history.length === 1 ? '' : 's'} on file
+                    <span className="num text-ink">{history.length}</span> run
+                    {history.length === 1 ? '' : 's'} on file
                 </span>
                 <button
                     type="button"
                     onClick={() => void load()}
-                    className="text-sky-400 hover:text-sky-300 uppercase tracking-wider font-semibold"
+                    className="text-ink hover:text-accent transition-colors duration-150"
                 >
                     Refresh
                 </button>

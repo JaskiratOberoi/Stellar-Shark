@@ -1,10 +1,12 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
     Activity,
     BarChart3,
     Boxes,
     ClipboardList,
     Factory,
+    History,
     LayoutDashboard,
     Link2,
     LogOut,
@@ -14,134 +16,152 @@ import {
     Warehouse
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { NexusWordmark } from './nexus/NexusWordmark.jsx';
+import { ThemeToggle } from './nexus/ThemeToggle.jsx';
 
-const navLinkClass = ({ isActive }) =>
-    `inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-        isActive
-            ? 'bg-ink text-white shadow-md'
-            : 'text-ink-secondary hover:bg-surface-muted hover:text-ink'
-    }`;
+function NavItem({ to, label, end = false }) {
+    const reduce = useReducedMotion();
+    return (
+        <NavLink
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+                `relative inline-flex items-center px-3 py-2 font-mono uppercase text-eyebrow transition-colors duration-150 ease-snap ${
+                    isActive ? 'text-ink' : 'text-ink-3 hover:text-ink'
+                }`
+            }
+        >
+            {({ isActive }) => (
+                <>
+                    <span>{label}</span>
+                    {isActive ? (
+                        reduce ? (
+                            <span className="absolute left-2 right-2 -bottom-px h-[2px] bg-ink" />
+                        ) : (
+                            <motion.span
+                                layoutId="nav-underline"
+                                className="absolute left-2 right-2 -bottom-px h-[2px] bg-ink"
+                                transition={{ duration: 0.25, ease: [0.65, 0, 0.35, 1] }}
+                            />
+                        )
+                    ) : null}
+                </>
+            )}
+        </NavLink>
+    );
+}
 
-const sideIconClass = ({ isActive }) =>
-    `p-2.5 rounded-xl transition-colors ${
-        isActive ? 'bg-ink text-white shadow-md' : 'text-ink-muted hover:bg-white hover:text-ink'
-    }`;
+const sideIconBase =
+    'group relative flex flex-col items-center gap-1 py-3 w-full font-mono text-[9px] uppercase tracking-eyebrow transition-colors duration-150 ease-snap';
+
+function SideIcon({ to, icon: Icon, label, end = false }) {
+    return (
+        <NavLink
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+                `${sideIconBase} ${isActive ? 'text-ink' : 'text-ink-3 hover:text-ink hover:bg-surface-2'}`
+            }
+            title={label}
+        >
+            {({ isActive }) => (
+                <>
+                    {isActive ? (
+                        <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-ink" aria-hidden />
+                    ) : null}
+                    <Icon className="w-4 h-4" aria-hidden strokeWidth={isActive ? 2.25 : 1.75} />
+                    <span className="leading-none">{label}</span>
+                </>
+            )}
+        </NavLink>
+    );
+}
 
 export function AppShell() {
     const { user, logout } = useAuth();
     const showAdmin = user?.role === 'super_admin';
     const showLab = user?.role === 'lab_technician';
+    const loc = useLocation();
 
     return (
-        <div className="min-h-dvh flex flex-col bg-surface-muted text-ink">
-            <header className="shrink-0 z-20 border-b border-border bg-white/95 backdrop-blur-md shadow-sm">
+        <div className="min-h-dvh flex flex-col bg-bg text-ink">
+            <header className="shrink-0 z-20 border-b border-ink bg-bg">
                 <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 md:px-8 max-w-[1600px] mx-auto">
-                    <div className="flex items-center gap-6">
-                        <NavLink to="/" className="font-display font-bold text-lg text-ink tracking-tight">
-                            Nexus
+                    <div className="flex items-center gap-8">
+                        <NavLink to="/" aria-label="Nexus home">
+                            <NexusWordmark variant="inline" size="md" showTagline />
                         </NavLink>
-                        <nav className="hidden md:flex flex-wrap items-center gap-1" aria-label="Modules">
-                            <NavLink to="/teller/dashboard" className={navLinkClass}>
-                                <Activity className="w-4 h-4" aria-hidden />
-                                Teller
-                            </NavLink>
+                        <nav className="hidden md:flex items-center gap-1" aria-label="Modules">
+                            {!showLab ? <NavItem to="/teller/dashboard" label="Teller" /> : null}
                             {showLab ? (
                                 <>
-                                    <NavLink to="/lab/entry" className={navLinkClass}>
-                                        <ClipboardList className="w-4 h-4" aria-hidden />
-                                        Lab entry
-                                    </NavLink>
-                                    <NavLink to="/lab/history" className={navLinkClass}>
-                                        <ClipboardList className="w-4 h-4" aria-hidden />
-                                        History
-                                    </NavLink>
+                                    <NavItem to="/lab/entry" label="Lab" />
+                                    <NavItem to="/lab/history" label="History" />
                                 </>
                             ) : null}
                             {showAdmin ? (
                                 <>
-                                    <NavLink to="/admin/analytics" className={navLinkClass}>
-                                        <BarChart3 className="w-4 h-4" aria-hidden />
-                                        Analytics
-                                    </NavLink>
-                                    <NavLink to="/admin/inventory" className={navLinkClass}>
-                                        <Warehouse className="w-4 h-4" aria-hidden />
-                                        Inventory
-                                    </NavLink>
-                                    <NavLink to="/admin/dashboard" className={navLinkClass}>
-                                        <Shield className="w-4 h-4" aria-hidden />
-                                        Admin
-                                    </NavLink>
+                                    <NavItem to="/admin/analytics" label="Analytics" />
+                                    <NavItem to="/admin/inventory" label="Inventory" />
+                                    <NavItem to="/lab/history" label="History" />
+                                    <NavItem to="/admin/dashboard" label="Admin" />
                                 </>
                             ) : null}
                         </nav>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
+                        <ThemeToggle />
                         {user ? (
-                            <>
-                                <span className="text-xs text-ink-muted hidden sm:inline">
-                                    {user.displayName || user.username}
-                                    <span className="ml-2 text-[10px] uppercase tracking-wider opacity-70">
-                                        {user.role.replace('_', ' ')}
-                                    </span>
+                            <div className="flex items-center gap-3">
+                                <span className="hidden sm:inline-flex items-center gap-2 font-mono text-eyebrow uppercase">
+                                    <span className="text-ink">{user.displayName || user.username}</span>
+                                    <span className="text-ink-3">/</span>
+                                    <span className="text-ink-3">{user.role.replace('_', ' ')}</span>
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => logout()}
-                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary hover:text-ink px-3 py-2 rounded-full border border-border hover:bg-surface-muted"
+                                    className="nexus-btn-ghost py-2 px-3"
+                                    aria-label="Sign out"
                                 >
                                     <LogOut className="w-3.5 h-3.5" />
-                                    Sign out
+                                    <span className="hidden sm:inline">Sign out</span>
                                 </button>
-                            </>
+                            </div>
                         ) : (
-                            <span className="text-xs text-ink-muted">Guest mode</span>
+                            <span className="font-mono text-eyebrow uppercase text-ink-3">Guest mode</span>
                         )}
                     </div>
                 </div>
             </header>
 
-            <div className="flex flex-1 min-h-0 min-w-0">
+            <div className="flex flex-1 min-h-0 min-w-0" key={loc.pathname.split('/')[1]}>
                 <aside
-                    className="hidden lg:flex w-[72px] shrink-0 flex-col items-center py-6 gap-2 border-r border-border bg-white/90"
+                    className="hidden lg:flex w-[88px] shrink-0 flex-col border-r border-ink bg-bg"
                     aria-label="Quick navigation"
                 >
-                    <NavLink to="/teller/dashboard" className={sideIconClass} title="Teller">
-                        <Activity className="w-5 h-5" />
-                    </NavLink>
-                    {showLab ? (
-                        <NavLink to="/lab/entry" className={sideIconClass} title="Lab entry">
-                            <ClipboardList className="w-5 h-5" />
-                        </NavLink>
-                    ) : null}
+                    <div className="px-2 py-3 border-b border-rule-soft">
+                        <p
+                            className="font-mono uppercase text-eyebrow text-ink-3 text-center"
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                        >
+                            Modules
+                        </p>
+                    </div>
+                    {!showLab ? <SideIcon to="/teller/dashboard" icon={Activity} label="Teller" /> : null}
+                    {showLab ? <SideIcon to="/lab/entry" icon={ClipboardList} label="Lab" /> : null}
                     {showAdmin ? (
                         <>
-                            <NavLink to="/admin/analytics" className={sideIconClass} title="Analytics">
-                                <BarChart3 className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/inventory" className={sideIconClass} title="Inventory">
-                                <Warehouse className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/dashboard" className={sideIconClass} title="Admin">
-                                <LayoutDashboard className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/bus" className={sideIconClass} title="BUs">
-                                <Factory className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/machines" className={sideIconClass} title="Machines">
-                                <Boxes className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/kits" className={sideIconClass} title="Kits">
-                                <Package className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/parameters" className={sideIconClass} title="Parameters">
-                                <Link2 className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/users" className={sideIconClass} title="Users">
-                                <Users className="w-5 h-5" />
-                            </NavLink>
-                            <NavLink to="/admin/validation" className={sideIconClass} title="Validation">
-                                <Shield className="w-5 h-5" />
-                            </NavLink>
+                            <SideIcon to="/admin/analytics" icon={BarChart3} label="Stats" />
+                            <SideIcon to="/admin/inventory" icon={Warehouse} label="Inv" />
+                            <SideIcon to="/lab/history" icon={History} label="History" />
+                            <SideIcon to="/admin/dashboard" icon={LayoutDashboard} label="Admin" />
+                            <SideIcon to="/admin/bus" icon={Factory} label="BUs" />
+                            <SideIcon to="/admin/machines" icon={Boxes} label="Mach" />
+                            <SideIcon to="/admin/kits" icon={Package} label="Kits" />
+                            <SideIcon to="/admin/parameters" icon={Link2} label="Params" />
+                            <SideIcon to="/admin/users" icon={Users} label="Users" />
+                            <SideIcon to="/admin/validation" icon={Shield} label="Valid" />
                         </>
                     ) : null}
                 </aside>

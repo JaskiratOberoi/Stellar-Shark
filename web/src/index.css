@@ -2,150 +2,350 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================
+   NEXUS DESIGN TOKENS
+   Swiss / Editorial Brutalist. Dual mode via [data-theme].
+   Colors stored as raw R G B triplets so Tailwind can apply
+   alpha via rgb(var(--token) / <alpha-value>).
+   =========================================================== */
+
+:root,
+[data-theme='light'] {
+    --bg: 250 250 247;
+    --surface: 255 255 255;
+    --surface-2: 240 240 235;
+    --ink: 10 10 10;
+    --ink-2: 58 58 58;
+    --ink-3: 115 115 115;
+    --rule: 10 10 10;
+    --rule-soft: 229 229 224;
+
+    --accent: 212 255 58;
+    --accent-ink: 10 10 10;
+    --signal-danger: 255 59 48;
+    --signal-success: 0 200 83;
+    --signal-warning: 255 179 0;
+
+    color-scheme: light;
+}
+
+[data-theme='dark'] {
+    --bg: 10 10 10;
+    --surface: 20 20 20;
+    --surface-2: 31 31 31;
+    --ink: 250 250 247;
+    --ink-2: 184 184 184;
+    --ink-3: 115 115 115;
+    --rule: 250 250 247;
+    --rule-soft: 38 38 38;
+
+    --accent: 212 255 58;
+    --accent-ink: 10 10 10;
+    --signal-danger: 255 92 87;
+    --signal-success: 64 224 145;
+    --signal-warning: 255 196 60;
+
+    color-scheme: dark;
+}
+
 html,
 body,
 #root {
     min-height: 100%;
 }
 
-body {
-    @apply font-sans antialiased overflow-x-hidden;
-    background: theme('colors.surface.muted');
-    color: theme('colors.ink.DEFAULT');
+html {
+    background: rgb(var(--bg));
 }
 
-/* Light CRM-style background */
-.lab-app-bg {
+body {
+    @apply font-sans antialiased overflow-x-hidden;
+    background: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-feature-settings: 'ss01', 'cv11';
+}
+
+::selection {
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
+}
+
+/* Hairline grid background -- replaces the old soft gradient.
+   Lives behind page content via .nexus-bg */
+.nexus-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
-    background: linear-gradient(165deg, #f8fafc 0%, #f1f5f9 45%, #eef2f7 100%);
+    background: rgb(var(--bg));
     pointer-events: none;
 }
 
-.lab-app-bg::before {
+.nexus-bg::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 25%, transparent 75%);
+        linear-gradient(rgb(var(--ink) / 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(var(--ink) / 0.05) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 100% 80% at 50% 0%, black 30%, transparent 80%);
 }
 
+[data-theme='dark'] .nexus-bg::before {
+    background-image:
+        linear-gradient(rgb(var(--ink) / 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(var(--ink) / 0.07) 1px, transparent 1px);
+}
+
+/* Legacy aliases so we can ship without a flag-day across pages */
+.lab-app-bg,
 .genomics-bg {
-    @apply lab-app-bg;
+    @apply nexus-bg;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .lab-app-bg,
-    .lab-app-bg::before,
-    .genomics-bg,
-    .genomics-bg::before {
-        animation: none;
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
     }
 }
 
-/* Glass panels — light variant */
-.glass-panel {
-    @apply backdrop-blur-md rounded-panel-lg border border-border bg-white/90;
-    box-shadow: theme('boxShadow.card');
-}
-
-.glass-panel-emphasis {
-    @apply backdrop-blur-xl rounded-[1rem] border border-border bg-white;
-    box-shadow: theme('boxShadow.card');
-}
-
-.glass-panel-strong {
-    @apply glass-panel-emphasis;
-}
-
+/* Editorial scrollbar */
 .log-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(37, 99, 235, 0.25) transparent;
+    scrollbar-color: rgb(var(--ink) / 0.35) transparent;
 }
 
 .log-scroll::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 .log-scroll::-webkit-scrollbar-thumb {
-    background: rgba(37, 99, 235, 0.25);
-    border-radius: 999px;
+    background: rgb(var(--ink) / 0.35);
+    border-radius: 0;
 }
 
 @layer components {
-    .input-field {
-        @apply w-full rounded-xl bg-white border border-border px-4 py-3 text-ink placeholder:text-ink-faint transition-shadow;
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary;
+    /* ---------- Editorial primitives ---------- */
+    .nexus-eyebrow {
+        @apply font-mono uppercase text-eyebrow text-ink-2;
+    }
+
+    .nexus-rule {
+        @apply block w-full h-px bg-ink origin-left;
+    }
+
+    .nexus-rule-soft {
+        @apply block w-full h-px bg-rule-soft;
+    }
+
+    /* ---------- Card ---------- */
+    .nexus-card {
+        @apply relative bg-surface border border-rule-soft p-5 min-h-0 flex flex-col transition-colors duration-200 ease-snap;
+        border-radius: 0;
+    }
+
+    .nexus-card:hover {
+        border-color: rgb(var(--ink));
+    }
+
+    .nexus-card-static {
+        @apply relative bg-surface border border-rule-soft p-5;
+        border-radius: 0;
+    }
+
+    /* Legacy classes resolve to editorial cards */
+    .glass-panel,
+    .glass-panel-emphasis,
+    .glass-panel-strong,
+    .lab-card {
+        @apply nexus-card-static;
+    }
+
+    /* ---------- Inputs ---------- */
+    .nexus-input {
+        @apply w-full bg-surface border border-rule-soft px-4 py-3 text-sm text-ink placeholder:text-ink-3 transition-colors duration-150 ease-snap;
+        border-radius: 0;
+    }
+
+    .nexus-input:hover {
+        border-color: rgb(var(--ink) / 0.5);
+    }
+
+    .nexus-input:focus,
+    .nexus-input:focus-visible {
+        @apply outline-none;
+        border-color: rgb(var(--ink));
+        box-shadow: inset 0 -2px 0 0 rgb(var(--accent));
+    }
+
+    .nexus-input:disabled {
+        @apply opacity-60 cursor-not-allowed;
+    }
+
+    select.nexus-input {
+        @apply appearance-none cursor-pointer pr-10;
+        background-color: rgb(var(--surface));
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 0.75rem 0.75rem;
+        color: rgb(var(--ink));
+    }
+
+    /* Legacy alias */
+    .input-field,
+    .lab-input {
+        @apply nexus-input;
+    }
+
+    select.lab-input {
+        @apply nexus-input;
+    }
+
+    /* ---------- Buttons ---------- */
+    .nexus-btn {
+        @apply inline-flex items-center justify-center gap-2 font-mono uppercase text-eyebrow px-4 py-3 border transition-all duration-200 ease-snap;
+        border-radius: 0;
+    }
+
+    .nexus-btn-primary {
+        @apply nexus-btn bg-ink text-bg border-ink;
+    }
+
+    .nexus-btn-primary:hover {
+        @apply -translate-y-px;
+        background: rgb(var(--accent));
+        color: rgb(var(--accent-ink));
+        border-color: rgb(var(--accent));
+    }
+
+    .nexus-btn-primary:active {
+        transform: scale(0.98);
+    }
+
+    .nexus-btn-primary:disabled {
+        @apply opacity-40 cursor-not-allowed translate-y-0;
+        background: rgb(var(--ink));
+        color: rgb(var(--bg));
+        border-color: rgb(var(--ink));
+    }
+
+    .nexus-btn-accent {
+        @apply nexus-btn border-accent;
+        background: rgb(var(--accent));
+        color: rgb(var(--accent-ink));
+    }
+
+    .nexus-btn-accent:hover {
+        @apply -translate-y-px;
+        background: rgb(var(--ink));
+        color: rgb(var(--bg));
+        border-color: rgb(var(--ink));
+    }
+
+    .nexus-btn-accent:active {
+        transform: scale(0.98);
+    }
+
+    .nexus-btn-ghost {
+        @apply nexus-btn bg-transparent text-ink border-rule-soft;
+    }
+
+    .nexus-btn-ghost:hover {
+        border-color: rgb(var(--ink));
+        background: rgb(var(--surface-2));
+    }
+
+    .nexus-btn-ghost:active {
+        transform: scale(0.98);
+    }
+
+    .nexus-btn-ghost:disabled {
+        @apply opacity-40 cursor-not-allowed;
+    }
+
+    /* Legacy aliases */
+    .btn-primary {
+        @apply nexus-btn-primary;
     }
 
     .btn-ghost {
-        @apply rounded-xl text-xs font-medium border border-border bg-white transition-colors;
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-40;
-        @apply text-ink-secondary hover:bg-surface-muted hover:border-border-strong;
-    }
-
-    .btn-primary {
-        @apply rounded-xl font-semibold text-white px-6 py-3 bg-primary shadow-md transition-transform;
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply nexus-btn-ghost;
     }
 
     .btn-lab-run {
-        @apply w-full rounded-xl font-semibold text-white py-3.5 px-4 text-sm tracking-wide transition-opacity;
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-45 disabled:cursor-not-allowed;
-        background: linear-gradient(105deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
-        box-shadow: 0 8px 28px -8px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        @apply nexus-btn-accent w-full text-sm py-3.5;
     }
 
-    .lab-card {
-        @apply rounded-2xl border p-5 min-h-0 flex flex-col bg-white;
-        border-color: theme('colors.border.DEFAULT');
-        box-shadow: theme('boxShadow.card');
+    /* ---------- Focus ring (universal accent outline) ---------- */
+    .nexus-focus,
+    .nexus-btn:focus-visible,
+    .nexus-input:focus-visible {
+        outline: 2px solid rgb(var(--accent));
+        outline-offset: 2px;
     }
 
-    .lab-input {
-        @apply w-full rounded-lg border px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors;
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30;
-        border-color: theme('colors.border.DEFAULT');
-        background: theme('colors.surface.DEFAULT');
-    }
-
-    /* Native selects: room for chevron, consistent with inputs (Windows default arrow is easy to misread). */
-    select.lab-input {
-        @apply appearance-none cursor-pointer pr-10;
-        background-color: theme('colors.surface.DEFAULT');
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 0.65rem center;
-        background-size: 1rem 1rem;
-    }
-
-    select.lab-input:disabled {
-        @apply cursor-not-allowed opacity-60;
-    }
-
+    /* ---------- Data table ---------- */
     .data-table {
         @apply w-full text-left text-xs;
     }
 
     .data-table thead {
-        @apply text-ink-muted sticky top-0 z-[1];
-        background: theme('colors.surface.muted');
+        @apply font-mono uppercase text-eyebrow text-ink-2 sticky top-0 z-[1];
+        background: rgb(var(--surface-2));
     }
 
-    .data-table th,
+    .data-table th {
+        @apply px-3 py-2.5 border-b border-rule-soft;
+    }
+
     .data-table td {
-        @apply p-2;
+        @apply px-3 py-2.5 text-ink-2;
     }
 
     .data-table tbody tr {
-        @apply border-t border-border;
+        @apply border-t border-rule-soft transition-colors duration-150 ease-snap relative;
+    }
+
+    .data-table tbody tr:hover {
+        background: rgb(var(--surface-2));
+        box-shadow: inset 2px 0 0 0 rgb(var(--accent));
     }
 
     .data-table-lab thead {
-        @apply text-[10px] font-semibold uppercase tracking-wider text-ink-muted;
+        @apply text-eyebrow font-mono uppercase text-ink-2;
+    }
+
+    /* ---------- Numeric / mono helpers ---------- */
+    .num {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum' 1, 'ss01' 1;
+    }
+
+    /* ---------- Shimmer (loading) ---------- */
+    .nexus-shimmer {
+        background: linear-gradient(
+            90deg,
+            rgb(var(--surface-2)) 0%,
+            rgb(var(--ink) / 0.06) 50%,
+            rgb(var(--surface-2)) 100%
+        );
+        background-size: 200% 100%;
+        @apply animate-shimmer;
+    }
+
+    /* ---------- Marquee (ticker) ---------- */
+    .nexus-marquee {
+        @apply flex gap-12 whitespace-nowrap;
+        animation: marquee 38s linear infinite;
+    }
+
+    .nexus-marquee-pause:hover .nexus-marquee {
+        animation-play-state: paused;
     }
 }

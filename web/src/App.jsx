@@ -28,7 +28,14 @@ export default function App() {
                     <Route element={<ProtectedRoute />}>
                         <Route element={<AppShell />}>
                             <Route path="/" element={<HomeRedirect />} />
-                            <Route path="/teller/dashboard" element={<TellerDashboard />} />
+                            <Route
+                                path="/teller/dashboard"
+                                element={
+                                    <RoleGate roles={['super_admin']}>
+                                        <TellerDashboard />
+                                    </RoleGate>
+                                }
+                            />
                             <Route path="/shark/dashboard" element={<Navigate to="/teller/dashboard" replace />} />
                             <Route
                                 path="/lab/entry"
@@ -41,7 +48,7 @@ export default function App() {
                             <Route
                                 path="/lab/history"
                                 element={
-                                    <RoleGate roles={['lab_technician']}>
+                                    <RoleGate roles={['lab_technician', 'super_admin']}>
                                         <LabHistoryPage />
                                     </RoleGate>
                                 }

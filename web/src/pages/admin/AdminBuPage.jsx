@@ -169,7 +169,7 @@ export function AdminBuPage() {
 
             {editRow ? (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-[2px]"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="edit-bu-title"
@@ -178,7 +178,7 @@ export function AdminBuPage() {
                     }}
                 >
                     <div
-                        className="lab-card w-full max-w-md p-5 md:p-6 shadow-card-hover border border-border"
+                        className="relative w-full max-w-md p-5 md:p-6 bg-surface border-2 border-ink"
                         onMouseDown={(ev) => ev.stopPropagation()}
                     >
                         <h2 id="edit-bu-title" className="text-base font-semibold text-ink mb-1">

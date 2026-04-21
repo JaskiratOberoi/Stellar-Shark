@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+    rect.bg { fill: #FAFAF7; }
+    rect.frame { stroke: #0A0A0A; }
+    text.fg { fill: #0A0A0A; font-family: "Space Grotesk", Inter, "Helvetica Neue", Arial, sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.04em; }
+    rect.dot { fill: #D4FF3A; stroke: #0A0A0A; stroke-width: 1; }
+    @media (prefers-color-scheme: dark) {
+      rect.bg { fill: #0A0A0A; }
+      rect.frame { stroke: #FAFAF7; }
+      text.fg { fill: #FAFAF7; }
+      rect.dot { stroke: #FAFAF7; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32"/>
+  <rect class="frame" x="4" y="4" width="24" height="24" fill="none" stroke-width="2"/>
+  <text class="fg" x="16" y="23.5" text-anchor="middle">N</text>
+  <rect class="dot" x="22" y="6" width="4" height="4"/>
+</svg>

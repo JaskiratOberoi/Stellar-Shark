@@ -1,15 +1,12 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { LoadingMark } from './nexus/LoadingMark.jsx';
 
 export function HomeRedirect() {
     const { user, authRequired, loading } = useAuth();
 
     if (loading || authRequired === null) {
-        return (
-            <div className="min-h-dvh flex items-center justify-center bg-surface-muted text-ink-muted">
-                Loading…
-            </div>
-        );
+        return <LoadingMark full label="Routing" />;
     }
 
     if (!authRequired || !user) {

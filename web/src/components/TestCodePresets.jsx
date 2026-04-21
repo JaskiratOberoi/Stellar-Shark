@@ -129,9 +129,8 @@ export function TestCodePresets({ testCode, setTestCode, running, compact = fals
                     const ringOff = sidebar
                         ? 'border-white/12 text-slate-400 hover:border-white/25 hover:text-slate-200'
                         : 'border-genomics-border text-genomics-fg-muted hover:border-white/18 hover:text-genomics-fg';
-                    const ringOn = sidebar
-                        ? 'border-sky-400/80 bg-sky-950/30 text-white ring-1 ring-sky-500/40'
-                        : 'border-cyan-400/70 bg-cyan-950/40 text-white ring-1 ring-cyan-500/30';
+                    const ringOn =
+                        'border-accent bg-accent/10 text-ink ring-1 ring-accent/40';
                     return (
                         <button
                             key={code}

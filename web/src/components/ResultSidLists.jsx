@@ -17,7 +17,7 @@ function SidBlock({ title, sids, legacyHint }) {
 
     if (legacyHint) {
         return (
-            <p className="text-[10px] text-genomics-warning/90 leading-snug mt-2 pt-2 border-t border-white/10">
+            <p className="font-mono text-eyebrow uppercase text-signal-warning leading-snug mt-2 pt-2 border-t border-rule-soft">
                 Re-run the count to load the full SID list.
             </p>
         );
@@ -25,28 +25,30 @@ function SidBlock({ title, sids, legacyHint }) {
 
     if (list.length === 0) {
         return (
-            <p className="text-[10px] text-genomics-fg-subtle mt-2 pt-2 border-t border-white/10">
+            <p className="font-mono text-eyebrow uppercase text-ink-3 mt-2 pt-2 border-t border-rule-soft">
                 No matching SIDs in this run.
             </p>
         );
     }
 
     return (
-        <div className="mt-2 pt-2 border-t border-white/10 flex flex-col min-h-0">
+        <div className="mt-2 pt-2 border-t border-rule-soft flex flex-col min-h-0">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                <h3 className="text-xs font-display font-semibold text-white">{title}</h3>
+                <h3 className="font-mono text-eyebrow uppercase text-ink">{title}</h3>
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-genomics-fg-muted tabular-nums">{list.length} SIDs</span>
+                    <span className="font-mono text-eyebrow uppercase text-ink-3 num">
+                        {list.length} SIDs
+                    </span>
                     <button
                         type="button"
                         onClick={copyAll}
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-md border border-white/15 bg-white/[0.06] text-genomics-accent hover:text-genomics-accent-hover hover:border-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-genomics-ring"
+                        className="font-mono text-eyebrow uppercase px-2 py-0.5 border border-rule-soft text-ink hover:border-ink hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-150 ease-snap"
                     >
                         {copied ? 'Copied' : 'Copy all'}
                     </button>
                 </div>
             </div>
-            <ul className="log-scroll max-h-40 overflow-y-auto rounded-md border border-white/[0.08] bg-black/30 px-2 py-1.5 font-mono text-[11px] leading-snug text-genomics-fg-muted space-y-0.5">
+            <ul className="log-scroll max-h-40 overflow-y-auto border border-rule-soft bg-surface-2 px-2 py-1.5 font-mono text-[11px] leading-snug text-ink-2 space-y-0.5">
                 {list.map((sid, i) => (
                     <li key={`${sid}-${i}`} className="break-all">
                         {sid}
@@ -64,7 +66,7 @@ export function ResultSidLists({ result }) {
     if (result.multiBu && Array.isArray(result.results)) {
         return (
             <div className="space-y-1">
-                <p className="text-[10px] text-genomics-fg-subtle leading-snug">SIDs per business unit (not deduped across BUs).</p>
+                <p className="font-mono text-eyebrow uppercase text-ink-3 leading-snug">SIDs per business unit (not deduped across BUs).</p>
                 {result.results.map((r) => {
                     const legacy =
                         r.sidList === undefined && (r.totalTests > 0 || r.uniqueSids > 0);

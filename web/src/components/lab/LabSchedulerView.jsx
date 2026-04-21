@@ -172,11 +172,7 @@ export function LabSchedulerView() {
                         <strong className="text-slate-400">Reports</strong> automatically.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={load}
-                    className="shrink-0 px-4 py-2 rounded-lg border border-white/15 text-xs font-semibold uppercase tracking-wider text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
-                >
+                <button type="button" onClick={load} className="nexus-btn-ghost">
                     Refresh
                 </button>
             </div>
@@ -268,8 +264,8 @@ export function LabSchedulerView() {
                                     onClick={() => toggleDraftBu(label)}
                                     className={
                                         on
-                                            ? 'px-2.5 py-1 rounded-md text-xs font-semibold border border-sky-500/50 bg-sky-500/15 text-sky-200'
-                                            : 'px-2.5 py-1 rounded-md text-xs font-medium border border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                            ? 'px-2.5 py-1 text-xs font-mono uppercase border border-ink bg-accent text-accent-ink'
+                                            : 'px-2.5 py-1 text-xs font-mono uppercase border border-rule-soft text-ink-3 hover:text-ink hover:border-ink'
                                     }
                                 >
                                     {label}
@@ -290,22 +286,23 @@ export function LabSchedulerView() {
                     type="button"
                     onClick={addSchedule}
                     disabled={saving}
-                    className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+                    className="nexus-btn-accent"
                 >
-                    {saving ? 'Saving…' : 'Add schedule'}
+                    {saving ? 'Saving' : 'Add schedule'}
                 </button>
             </div>
 
-            <div className="lab-card overflow-hidden p-0">
-                <div className="px-4 py-3 border-b border-white/[0.08]">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                        Active schedules ({schedules.length})
+            <div className="border border-rule-soft bg-surface overflow-hidden">
+                <div className="px-4 py-3 border-b border-rule-soft bg-surface-2">
+                    <span className="font-mono uppercase text-eyebrow text-ink-2">
+                        Active schedules <span className="text-ink-3">/</span>{' '}
+                        <span className="num">{schedules.length}</span>
                     </span>
                 </div>
                 {schedules.length === 0 ? (
                     <p className="p-4 text-sm text-slate-500">No schedules yet. Add one above.</p>
                 ) : (
-                    <ul className="divide-y divide-white/[0.06]">
+                    <ul className="divide-y divide-rule-soft">
                         {schedules.map((s) => (
                             <li
                                 key={s.id}
@@ -331,8 +328,8 @@ export function LabSchedulerView() {
                                         disabled={saving}
                                         className={
                                             s.enabled
-                                                ? 'px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-emerald-400 border border-emerald-500/40'
-                                                : 'px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-slate-500 border border-white/10'
+                                                ? 'px-2 py-1 font-mono text-eyebrow uppercase text-signal-success border border-signal-success'
+                                                : 'px-2 py-1 font-mono text-eyebrow uppercase text-ink-3 border border-rule-soft'
                                         }
                                     >
                                         {s.enabled ? 'On' : 'Off'}
@@ -352,13 +349,13 @@ export function LabSchedulerView() {
                 )}
             </div>
 
-            <div className="lab-card overflow-hidden p-0 flex-1 min-h-0 flex flex-col">
-                <div className="px-4 py-3 border-b border-white/[0.08]">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                        Run history (server)
+            <div className="border border-rule-soft bg-surface overflow-hidden flex-1 min-h-0 flex flex-col">
+                <div className="px-4 py-3 border-b border-rule-soft bg-surface-2">
+                    <span className="font-mono uppercase text-eyebrow text-ink-2">
+                        Run history <span className="text-ink-3">/</span> server
                     </span>
-                    <p className="text-[10px] text-slate-600 mt-1">
-                        Successful jobs are saved here and in the Reports tab automatically.
+                    <p className="font-mono text-eyebrow text-ink-3 mt-1">
+                        Successful jobs are saved here and in Reports automatically.
                     </p>
                 </div>
                 <div className="flex-1 min-h-0 overflow-auto log-scroll max-h-[min(28rem,50vh)]">
@@ -369,7 +366,7 @@ export function LabSchedulerView() {
                     ) : (
                         <table className="text-xs w-full border-collapse">
                             <thead>
-                                <tr className="border-b border-white/10 text-left text-[10px] uppercase tracking-wider text-slate-500">
+                                <tr className="border-b border-rule-soft text-left font-mono uppercase text-eyebrow text-ink-2 bg-surface-2">
                                     <th className="px-3 py-2 font-semibold">When (UTC)</th>
                                     <th className="px-3 py-2 font-semibold">Label</th>
                                     <th className="px-3 py-2 font-semibold">Status</th>
@@ -378,7 +375,7 @@ export function LabSchedulerView() {
                             </thead>
                             <tbody className="text-slate-300">
                                 {runs.map((r) => (
-                                    <tr key={r.id} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
+                                    <tr key={r.id} className="border-b border-rule-soft hover:bg-surface-2 transition-colors duration-150 ease-snap">
                                         <td className="px-3 py-2 whitespace-nowrap font-mono text-[10px] text-slate-400">
                                             {r.runAt}
                                         </td>

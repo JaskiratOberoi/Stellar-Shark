@@ -176,20 +176,20 @@ export function AdminDashboard() {
                             <Link
                                 key={to}
                                 to={to}
-                                className="group flex items-start gap-4 rounded-2xl border border-border bg-white/95 p-4 shadow-card transition-all duration-200 hover:border-primary/25 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                className="group relative flex items-start gap-4 border border-rule-soft bg-surface p-4 transition-colors duration-200 ease-snap hover:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             >
                                 <span
-                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-ink-secondary group-hover:bg-primary-soft group-hover:text-primary transition-colors"
+                                    className="flex h-11 w-11 shrink-0 items-center justify-center border border-rule-soft bg-surface-2 text-ink-2 group-hover:bg-accent group-hover:text-accent-ink group-hover:border-ink transition-colors"
                                     aria-hidden
                                 >
                                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-1 font-semibold text-ink group-hover:text-primary transition-colors">
+                                    <span className="flex items-center gap-1 font-display font-semibold text-ink">
                                         {title}
                                         <ArrowRight className="h-4 w-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                                     </span>
-                                    <span className="block text-xs text-ink-muted mt-0.5 leading-relaxed">
+                                    <span className="block text-xs text-ink-2 mt-1 leading-relaxed">
                                         {description}
                                     </span>
                                 </span>
