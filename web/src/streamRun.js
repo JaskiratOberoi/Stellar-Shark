@@ -1,4 +1,4 @@
-import { authHeaders } from './apiClient.js';
+import { apiUrl, authHeaders } from './apiClient.js';
 
 /**
  * POST /api/run and consume SSE-style `data: {...}\n\n` chunks from the response body.
@@ -8,7 +8,7 @@ import { authHeaders } from './apiClient.js';
  */
 
 export async function streamGenomicsRun(body, onEvent, signal) {
-    const res = await fetch('/api/run', {
+    const res = await fetch(apiUrl('/api/run'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -59,7 +59,7 @@ export async function streamGenomicsRun(body, onEvent, signal) {
 }
 
 export async function cancelRun() {
-    const res = await fetch('/api/cancel', {
+    const res = await fetch(apiUrl('/api/cancel'), {
         method: 'POST',
         headers: { ...authHeaders() }
     });

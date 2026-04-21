@@ -34,6 +34,9 @@ services:
       TZ: ${TZ:-Asia/Kolkata}
       # Hard stop for hung LIS runs (ms). Default 90 minutes.
       GENOMICS_RUN_MAX_MS: ${GENOMICS_RUN_MAX_MS:-5400000}
+      # Browsers calling api-nexus from the Hostinger-hosted SPA need CORS allow-list.
+      # Override per-env by exporting CORS_ORIGINS before `docker compose up`.
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://nexus.stellarinfomatica.com}
     mem_limit: 2g
     cpus: 2.0
     healthcheck:

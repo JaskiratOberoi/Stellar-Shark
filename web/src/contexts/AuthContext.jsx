@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiFetch, getToken, setToken } from '../apiClient.js';
+import { apiFetch, apiUrl, getToken, setToken } from '../apiClient.js';
 
 const AuthContext = createContext(null);
 
@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
         let cancelled = false;
         (async () => {
             try {
-                const h = await fetch('/api/health');
+                const h = await fetch(apiUrl('/api/health'));
                 const d = await h.json();
                 const needAuth = d.database === 'postgres';
                 if (cancelled) return;

@@ -1,5 +1,19 @@
 const TOKEN_KEY = 'nexus_token';
 
+/**
+ * Empty in dev (Vite proxy forwards /api/* to localhost:3101) and same-origin Docker.
+ * Set to https://api-nexus.stellarinfomatica.com via VITE_API_BASE_URL when the SPA
+ * is deployed cross-origin (e.g. on Hostinger).
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
+export function apiUrl(path) {
+    if (!path) return API_BASE;
+    if (/^https?:\/\//i.test(path)) return path;
+    const suffix = path.startsWith('/') ? path : `/${path}`;
+    return `${API_BASE}${suffix}`;
+}
+
 export function getToken() {
     if (typeof localStorage === 'undefined') return null;
     return localStorage.getItem(TOKEN_KEY);
@@ -27,5 +41,5 @@ export async function apiFetch(path, init = {}) {
     if (init.body && typeof init.body === 'string' && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
     }
-    return fetch(path, { ...init, headers });
+    return fetch(apiUrl(path), { ...init, headers });
 }
