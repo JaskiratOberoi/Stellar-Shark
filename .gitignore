@@ -13,3 +13,8 @@ npm-debug.log*
 coverage/
 data/
 release/
+
+# Local-only scratch space: deploy keypairs, throwaway probe scripts, payloads.
+# Never commit anything in here -- private keys and creds may live transiently here.
+.tmp-*
+.tmp-*/

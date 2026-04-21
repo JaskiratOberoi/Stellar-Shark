@@ -46,16 +46,50 @@ jobs:
           test -f web/dist/.htaccess  || (echo "::error::web/dist/.htaccess missing (SPA fallback)" && exit 1)
           ls -la web/dist | head -n 30
 
-      - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
-          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          server-dir: ${{ secrets.HOSTINGER_FTP_PATH }}
-          local-dir: web/dist/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+      # Hostinger shared hosting decouples FTP and SSH passwords on this account, so
+      # we deploy over SSH (key auth) instead of FTP. SSH/SFTP also gives us rsync
+      # with --delete for atomic, drift-free deploys of hashed Vite assets.
+      - name: Configure SSH for Hostinger
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.HOSTINGER_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/id_ed25519
+          ssh -p "${{ secrets.HOSTINGER_SSH_PORT }}" -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=yes -o BatchMode=yes \
+              "${{ secrets.HOSTINGER_SSH_USERNAME }}@${{ secrets.HOSTINGER_SSH_HOST }}" \
+              'echo OK; id; pwd'
+
+      - name: Deploy to Hostinger via rsync over SSH
+        env:
+          DEST_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          DEST_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          DEST_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          DEST_PATH: ${{ secrets.HOSTINGER_SSH_PATH }}
+        run: |
+          # --delete removes Hostinger's default.php placeholder + any prior Vite hashes
+          # that the new build no longer references. Excludes are belt-and-braces; the
+          # build artefact in web/dist/ should never contain these, but rsync sees the
+          # source dir verbatim.
+          rsync -avz --delete \
+            --exclude='.git*' --exclude='node_modules' \
+            -e "ssh -p ${DEST_PORT} -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+            web/dist/ "${DEST_USER}@${DEST_HOST}:${DEST_PATH}"
+
+      - name: Verify live site responds
+        run: |
+          # Hostinger may take a few seconds to pick up the new index.html; retry briefly.
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' https://nexus.stellarinfomatica.com/)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 3
+          done
+          echo "::error::nexus.stellarinfomatica.com did not return 200"
+          exit 1
