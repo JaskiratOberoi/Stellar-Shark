@@ -430,6 +430,9 @@ router.post('/users', async (req, res) => {
         if (!username || !password || !displayName || !role) {
             return res.status(400).json({ error: 'username, password, display_name, role=lab_technician required' });
         }
+        if (password.length < 4) {
+            return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+        }
         if (role !== 'lab_technician') {
             return res.status(400).json({ error: 'Only lab_technician can be created here' });
         }
@@ -463,12 +466,27 @@ router.patch('/users/:id', async (req, res) => {
         const { id } = req.params;
         const pool = getPool();
         const body = req.body || {};
-        if (body.password) {
-            const hash = await bcrypt.hash(String(body.password), 10);
+
+        // Footgun guard: a super admin cannot deactivate their own account
+        // (would lock them out of the only role that can re-enable it).
+        if (body.active === false && req.user?.id === id) {
+            return res.status(409).json({ error: 'You cannot deactivate your own account.' });
+        }
+
+        // Password sanity: reject empty / whitespace-only updates so a slipped
+        // PATCH doesn't silently set someone's hash to bcrypt('').
+        if (body.password != null) {
+            const pw = String(body.password);
+            if (pw.length < 4) {
+                return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+            }
+            const hash = await bcrypt.hash(pw, 10);
             await pool.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, id]);
         }
         if (body.display_name != null) {
-            await pool.query(`UPDATE users SET display_name = $1 WHERE id = $2`, [String(body.display_name), id]);
+            const dn = String(body.display_name).trim();
+            if (!dn) return res.status(400).json({ error: 'Display name cannot be empty.' });
+            await pool.query(`UPDATE users SET display_name = $1 WHERE id = $2`, [dn, id]);
         }
         if (typeof body.active === 'boolean') {
             await pool.query(`UPDATE users SET active = $1 WHERE id = $2`, [body.active, id]);

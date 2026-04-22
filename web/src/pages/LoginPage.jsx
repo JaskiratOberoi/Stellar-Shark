@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { NexusMark } from '../components/nexus/NexusMark.jsx';
 import { SectionMarker } from '../components/nexus/SectionMarker.jsx';
@@ -13,6 +13,7 @@ export function LoginPage() {
     const { login, isAuthenticated, authRequired, loading } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
@@ -155,13 +156,28 @@ export function LoginPage() {
                                 <div className="relative">
                                     <input
                                         id="pass"
-                                        type="password"
+                                        type={showPassword ? 'text' : 'password'}
                                         autoComplete="current-password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="nexus-input"
+                                        className="nexus-input pr-12"
                                         required
                                     />
+                                    {/* z-10 to sit above CornerBrackets' decorative spans (which are pointer-events-none) */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        aria-pressed={showPassword}
+                                        tabIndex={-1}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-1 text-ink-3 hover:text-ink focus:outline-none focus-visible:text-ink transition-colors duration-150 ease-snap"
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+                                        ) : (
+                                            <Eye className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+                                        )}
+                                    </button>
                                     <CornerBrackets onHover />
                                 </div>
                             </div>
