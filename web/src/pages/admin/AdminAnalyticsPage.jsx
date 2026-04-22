@@ -405,8 +405,11 @@ export function AdminAnalyticsPage() {
                                 <YAxis
                                     type="category"
                                     dataKey="name"
-                                    width={100}
+                                    width={72}
                                     tick={CHART_AXIS}
+                                    tickFormatter={(v) =>
+                                        typeof v === 'string' && v.length > 12 ? `${v.slice(0, 11)}…` : v
+                                    }
                                     axisLine={{ stroke: CHART_GRID.stroke }}
                                 />
                                 <Tooltip

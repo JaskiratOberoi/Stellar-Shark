@@ -54,12 +54,17 @@ body,
     min-height: 100%;
 }
 
+html,
+body {
+    overflow-x: clip;
+}
+
 html {
     background: rgb(var(--bg));
 }
 
 body {
-    @apply font-sans antialiased overflow-x-hidden;
+    @apply font-sans antialiased;
     background: rgb(var(--bg));
     color: rgb(var(--ink));
     font-feature-settings: 'ss01', 'cv11';

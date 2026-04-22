@@ -175,7 +175,7 @@ export function ScannerFab({ items, bus, onRefresh }) {
                     doneRef.current = false;
                     setScanning(true);
                 }}
-                className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-ink-3/30 bg-accent text-ink shadow-lg transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-accent/40"
+                className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full border border-ink-3/30 bg-accent text-ink shadow-lg transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-accent/40 right-[max(1.5rem,env(safe-area-inset-right))] bottom-[max(5rem,calc(env(safe-area-inset-bottom)+5rem))] md:bottom-[max(1.5rem,env(safe-area-inset-bottom))]"
                 title="Scan kit barcode"
                 aria-label="Open kit barcode scanner"
             >

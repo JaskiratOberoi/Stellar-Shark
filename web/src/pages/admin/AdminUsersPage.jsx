@@ -176,7 +176,7 @@ export function AdminUsersPage() {
             </section>
 
             <DataTableShell title="All users" count={users.length}>
-                <table className="data-table data-table-lab w-full min-w-[640px]">
+                <table className="data-table data-table-lab w-full min-w-0 hidden md:table">
                     <thead>
                         <tr>
                             <th className="pl-5">Username</th>
@@ -229,6 +229,50 @@ export function AdminUsersPage() {
                         )}
                     </tbody>
                 </table>
+                <ul className="m-0 list-none divide-y divide-rule-soft p-0 md:hidden" aria-label="All users (mobile)">
+                    {users.length === 0 ? (
+                        <li className="px-4 py-14 text-center text-sm text-ink-muted">
+                            No users yet. Create a lab technician above.
+                        </li>
+                    ) : (
+                        users.map((u) => {
+                            const isMe = me?.id === u.id;
+                            return (
+                                <li key={u.id} className="px-4 py-3">
+                                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                                            {u.username}
+                                            {isMe ? (
+                                                <span className="ml-2 font-mono text-[10px] uppercase text-ink-3">you</span>
+                                            ) : null}
+                                        </p>
+                                        <StatusPill active={u.active} />
+                                    </div>
+                                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                        <dt className="text-ink-3">Display</dt>
+                                        <dd className="text-ink-secondary">{u.display_name || '—'}</dd>
+                                        <dt className="text-ink-3">Role</dt>
+                                        <dd className="text-ink-muted">{u.role.replace('_', ' ')}</dd>
+                                        <dt className="text-ink-3">BUs</dt>
+                                        <dd className="min-w-0 break-words text-ink-secondary">
+                                            {(u.businessUnits || []).map((b) => b.name).join(', ') || '—'}
+                                        </dd>
+                                    </dl>
+                                    <div className="mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditing(u)}
+                                            className="inline-flex items-center gap-1.5 font-mono uppercase text-[10px] tracking-wider px-3 py-1.5 border border-rule-soft text-ink-2 hover:text-ink hover:border-ink transition-colors"
+                                        >
+                                            <Settings2 className="w-3 h-3" strokeWidth={2} aria-hidden />
+                                            Manage
+                                        </button>
+                                    </div>
+                                </li>
+                            );
+                        })
+                    )}
+                </ul>
             </DataTableShell>
 
             {editing ? (

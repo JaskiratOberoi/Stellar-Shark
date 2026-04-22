@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { NexusWordmark } from './nexus/NexusWordmark.jsx';
 import { ThemeToggle } from './nexus/ThemeToggle.jsx';
+import { MobileTabBar } from './MobileTabBar.jsx';
 
 function NavItem({ to, label, end = false }) {
     const reduce = useReducedMotion();
@@ -87,7 +88,7 @@ export function AppShell() {
         <div className="min-h-dvh flex flex-col bg-bg text-ink">
             <header className="shrink-0 z-20 border-b border-ink bg-bg">
                 <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 md:px-8 max-w-[1600px] mx-auto">
-                    <div className="flex items-center gap-8">
+                    <div className="flex min-w-0 items-center gap-8">
                         <NavLink to="/" aria-label="Nexus home">
                             <NexusWordmark variant="inline" size="md" showTagline />
                         </NavLink>
@@ -109,7 +110,9 @@ export function AppShell() {
                             ) : null}
                         </nav>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div
+                        className={`items-center gap-4 ${user ? 'hidden md:flex' : 'flex'}`}
+                    >
                         <ThemeToggle />
                         {user ? (
                             <div className="flex items-center gap-3">
@@ -166,10 +169,11 @@ export function AppShell() {
                     ) : null}
                 </aside>
 
-                <main className="flex-1 min-w-0 min-h-0 overflow-auto">
+                <main className="flex-1 min-h-0 min-w-0 overflow-auto pb-[max(4.5rem,env(safe-area-inset-bottom))] md:pb-0">
                     <Outlet />
                 </main>
             </div>
+            <MobileTabBar />
         </div>
     );
 }

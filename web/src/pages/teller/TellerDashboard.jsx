@@ -523,7 +523,7 @@ export function TellerDashboard() {
                                         <span className="text-ink-3 mx-1">/</span>
                                         <span>Daily test volume</span>
                                     </p>
-                                    <h2 className="mt-2 font-display font-bold text-display-1 text-ink leading-[0.95] tracking-[-0.03em]">
+                                    <h2 className="mt-2 font-display font-bold text-display-2 md:text-display-1 text-ink leading-[0.95] tracking-[-0.03em]">
                                         Operations
                                     </h2>
                                     <p className="font-mono uppercase text-eyebrow text-ink-3 mt-2">

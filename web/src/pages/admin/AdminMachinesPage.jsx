@@ -126,7 +126,7 @@ export function AdminMachinesPage() {
                                 ))}
                             </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label
                                     className="block text-xs font-medium text-ink-secondary mb-1.5"
@@ -206,11 +206,11 @@ export function AdminMachinesPage() {
             </section>
 
             <DataTableShell title="All machines" count={machines.length}>
-                <table className="data-table data-table-lab w-full min-w-[560px]">
+                <table className="data-table data-table-lab w-full min-w-0">
                     <thead>
                         <tr>
                             <th className="pl-5">Name</th>
-                            <th>Model</th>
+                            <th className="hidden md:table-cell">Model</th>
                             <th>BU</th>
                             <th className="pr-5">Cal / QC per day</th>
                         </tr>
@@ -226,7 +226,7 @@ export function AdminMachinesPage() {
                             machines.map((m) => (
                                 <tr key={m.id} className="hover:bg-surface-muted/50 transition-colors">
                                     <td className="pl-5 py-3 text-sm font-medium text-ink">{m.name}</td>
-                                    <td className="py-3 text-sm text-ink-secondary">{m.model}</td>
+                                    <td className="hidden py-3 text-sm text-ink-secondary md:table-cell">{m.model}</td>
                                     <td className="py-3 text-sm text-ink-secondary">{m.bu_name}</td>
                                     <td className="pr-5 py-3 text-sm tabular-nums text-ink-secondary">
                                         {m.calibration_kits_per_day} / {m.qc_kits_per_day}

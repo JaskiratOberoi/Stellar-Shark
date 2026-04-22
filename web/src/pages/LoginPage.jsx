@@ -51,8 +51,8 @@ export function LoginPage() {
             <div className="nexus-bg" aria-hidden />
 
             {/* Header strip */}
-            <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-ink">
-                <div className="flex items-center gap-3">
+            <header className="relative z-10 flex items-center justify-between gap-4 px-6 md:px-10 py-5 border-b border-ink">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                     <NexusMark size={22} animate loop={7000} />
                     <span className="font-mono uppercase text-eyebrow text-ink-2">
                         Stellar Infomatica <span className="text-ink-3">/</span> Genomics LIS
@@ -70,7 +70,7 @@ export function LoginPage() {
                             initial={{ opacity: 0, y: enterY }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1] }}
-                            className="mt-6 font-display font-bold text-display-1 lg:text-display-hero leading-[0.9] tracking-[-0.04em] text-ink"
+                            className="mt-6 font-display font-bold text-display-2 sm:text-display-1 lg:text-display-hero leading-[0.9] tracking-[-0.04em] text-ink"
                         >
                             NEXUS
                         </motion.h1>

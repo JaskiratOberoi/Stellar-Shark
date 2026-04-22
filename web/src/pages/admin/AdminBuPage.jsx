@@ -245,12 +245,12 @@ export function AdminBuPage() {
             ) : null}
 
             <DataTableShell title="All business units" count={rows.length}>
-                <table className="data-table data-table-lab w-full min-w-[480px]">
+                <table className="data-table data-table-lab w-full min-w-0">
                     <thead>
                         <tr>
                             <th className="pl-5">Name</th>
-                            <th>Badge</th>
-                            <th>Active</th>
+                            <th className="hidden md:table-cell">Badge</th>
+                            <th className="hidden md:table-cell">Active</th>
                             <th className="pr-5 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -265,8 +265,10 @@ export function AdminBuPage() {
                             rows.map((r) => (
                                 <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
                                     <td className="pl-5 py-3 text-sm font-medium text-ink">{r.name}</td>
-                                    <td className="py-3 font-mono text-xs text-ink-secondary">{r.badge || '—'}</td>
-                                    <td className="py-3 text-sm text-ink-secondary">
+                                    <td className="hidden py-3 font-mono text-xs text-ink-secondary md:table-cell">
+                                        {r.badge || '—'}
+                                    </td>
+                                    <td className="hidden py-3 text-sm text-ink-secondary md:table-cell">
                                         {r.active ? 'Yes' : 'No'}
                                     </td>
                                     <td className="pr-5 py-3 text-right">

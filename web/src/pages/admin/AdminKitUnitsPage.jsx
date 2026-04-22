@@ -141,7 +141,7 @@ export function AdminKitUnitsPage() {
             </div>
 
             <div className="lab-card p-0 overflow-x-auto">
-                <table className="data-table data-table-lab w-full min-w-[720px] text-xs">
+                <table className="data-table data-table-lab w-full min-w-0 text-xs hidden md:table">
                     <thead>
                         <tr>
                             <th className="pl-4">Barcode</th>
@@ -161,8 +161,9 @@ export function AdminKitUnitsPage() {
                             </tr>
                         ) : (
                             units.map((u) => (
-                                <UnitRow
+                                <UnitView
                                     key={u.id}
+                                    variant="row"
                                     u={u}
                                     bus={bus}
                                     onChanged={loadUnits}
@@ -172,147 +173,193 @@ export function AdminKitUnitsPage() {
                         )}
                     </tbody>
                 </table>
+                <ul
+                    className="m-0 list-none divide-y divide-rule-soft p-0 md:hidden"
+                    aria-label="Kit units (mobile)"
+                >
+                    {units.length === 0 ? (
+                        <li className="px-4 py-10 text-center text-ink-3">
+                            No units match. Register barcodes from Inventory (scanner or add form).
+                        </li>
+                    ) : (
+                        units.map((u) => (
+                            <UnitView
+                                key={u.id}
+                                variant="card"
+                                u={u}
+                                bus={bus}
+                                onChanged={loadUnits}
+                                post={post}
+                            />
+                        ))
+                    )}
+                </ul>
             </div>
         </PageShell>
     );
 }
 
-function UnitRow({ u, bus, onChanged, post }) {
+function UnitView({ u, bus, onChanged, post, variant }) {
     const [moveTo, setMoveTo] = useState(
         (bus.find((b) => b.id !== u.current_bu_id) || bus[0])?.id || ''
     );
     const [saving, setSaving] = useState(false);
+    const when = u.last_event_at
+        ? new Date(u.last_event_at).toLocaleString()
+        : u.registered_at
+          ? new Date(u.registered_at).toLocaleString()
+          : '—';
+
+    const actionWrap = variant === 'row' 
+        ? 'inline-flex flex-col sm:flex-row gap-1 items-stretch sm:items-center justify-end'
+        : 'flex flex-col gap-1 items-stretch sm:flex-row sm:flex-wrap';
+
+    const actionForms = (
+        <div className={actionWrap}>
+            {u.status === 'central' && bus.length ? (
+                <form
+                    className="inline-flex flex-wrap gap-1 justify-end"
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!moveTo) return;
+                        setSaving(true);
+                        try {
+                            await post('/api/admin/kit-units/transfer', {
+                                barcode: u.barcode,
+                                bu_id: moveTo
+                            });
+                            await onChanged();
+                        } catch (err) {
+                            window.alert(err.message);
+                        } finally {
+                            setSaving(false);
+                        }
+                    }}
+                >
+                    <select
+                        className="lab-input !py-1 text-[11px] max-w-[7rem]"
+                        value={moveTo}
+                        onChange={(e) => setMoveTo(e.target.value)}
+                    >
+                        {bus.map((b) => (
+                            <option key={b.id} value={b.id}>
+                                {b.name}
+                            </option>
+                        ))}
+                    </select>
+                    <button type="submit" className="btn-primary px-2 py-1 text-[11px]" disabled={saving}>
+                        Send
+                    </button>
+                </form>
+            ) : null}
+            {u.status === 'at_bu' && bus.length > 1 ? (
+                <form
+                    className="inline-flex flex-wrap gap-1 justify-end"
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!moveTo) return;
+                        setSaving(true);
+                        try {
+                            await post('/api/admin/kit-units/reassign', {
+                                barcode: u.barcode,
+                                bu_id: moveTo
+                            });
+                            await onChanged();
+                        } catch (err) {
+                            window.alert(err.message);
+                        } finally {
+                            setSaving(false);
+                        }
+                    }}
+                >
+                    <select
+                        className="lab-input !py-1 text-[11px] max-w-[7rem]"
+                        value={moveTo}
+                        onChange={(e) => setMoveTo(e.target.value)}
+                    >
+                        {bus.map((b) => (
+                            <option key={b.id} value={b.id}>
+                                {b.name}
+                            </option>
+                        ))}
+                    </select>
+                    <button type="submit" className="btn-ghost px-2 py-1 text-[11px]" disabled={saving}>
+                        Move
+                    </button>
+                </form>
+            ) : null}
+            {u.status === 'at_bu' ? (
+                <button
+                    type="button"
+                    className="btn-ghost px-2 py-1 text-[11px]"
+                    disabled={saving}
+                    onClick={async () => {
+                        setSaving(true);
+                        try {
+                            await post('/api/admin/kit-units/consume', { barcode: u.barcode });
+                            await onChanged();
+                        } catch (err) {
+                            window.alert(err.message);
+                        } finally {
+                            setSaving(false);
+                        }
+                    }}
+                >
+                    Consume
+                </button>
+            ) : null}
+            {u.status === 'central' || u.status === 'at_bu' ? (
+                <button
+                    type="button"
+                    className="text-[11px] text-warning px-2 py-1"
+                    disabled={saving}
+                    onClick={async () => {
+                        if (!window.confirm('Retire this unit? Stock will be adjusted.')) return;
+                        setSaving(true);
+                        try {
+                            await post('/api/admin/kit-units/retire', { barcode: u.barcode });
+                            await onChanged();
+                        } catch (err) {
+                            window.alert(err.message);
+                        } finally {
+                            setSaving(false);
+                        }
+                    }}
+                >
+                    Retire
+                </button>
+            ) : null}
+        </div>
+    );
+
+    if (variant === 'row') {
+        return (
+            <tr className="hover:bg-surface-muted/40">
+                <td className="pl-4 py-2.5 font-mono text-ink break-all max-w-[10rem]">{u.barcode}</td>
+                <td className="py-2.5 text-ink-2">{u.item_name || u.item_id}</td>
+                <td className="py-2.5 uppercase text-ink-2">{u.status}</td>
+                <td className="py-2.5 text-ink-2">{u.bu_name || '—'}</td>
+                <td className="py-2.5 text-ink-3 whitespace-nowrap">{when}</td>
+                <td className="pr-4 py-2.5 text-right">{actionForms}</td>
+            </tr>
+        );
+    }
 
     return (
-        <tr className="hover:bg-surface-muted/40">
-            <td className="pl-4 py-2.5 font-mono text-ink break-all max-w-[10rem]">{u.barcode}</td>
-            <td className="py-2.5 text-ink-2">{u.item_name || u.item_id}</td>
-            <td className="py-2.5 uppercase text-ink-2">{u.status}</td>
-            <td className="py-2.5 text-ink-2">{u.bu_name || '—'}</td>
-            <td className="py-2.5 text-ink-3 whitespace-nowrap">
-                {u.last_event_at
-                    ? new Date(u.last_event_at).toLocaleString()
-                    : u.registered_at
-                      ? new Date(u.registered_at).toLocaleString()
-                      : '—'}
-            </td>
-            <td className="pr-4 py-2.5 text-right">
-                <div className="inline-flex flex-col sm:flex-row gap-1 items-stretch sm:items-center justify-end">
-                    {u.status === 'central' && bus.length ? (
-                        <form
-                            className="inline-flex flex-wrap gap-1 justify-end"
-                            onSubmit={async (e) => {
-                                e.preventDefault();
-                                if (!moveTo) return;
-                                setSaving(true);
-                                try {
-                                    await post('/api/admin/kit-units/transfer', {
-                                        barcode: u.barcode,
-                                        bu_id: moveTo
-                                    });
-                                    await onChanged();
-                                } catch (err) {
-                                    window.alert(err.message);
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}
-                        >
-                            <select
-                                className="lab-input !py-1 text-[11px] max-w-[7rem]"
-                                value={moveTo}
-                                onChange={(e) => setMoveTo(e.target.value)}
-                            >
-                                {bus.map((b) => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <button type="submit" className="btn-primary px-2 py-1 text-[11px]" disabled={saving}>
-                                Send
-                            </button>
-                        </form>
-                    ) : null}
-                    {u.status === 'at_bu' && bus.length > 1 ? (
-                        <form
-                            className="inline-flex flex-wrap gap-1 justify-end"
-                            onSubmit={async (e) => {
-                                e.preventDefault();
-                                if (!moveTo) return;
-                                setSaving(true);
-                                try {
-                                    await post('/api/admin/kit-units/reassign', {
-                                        barcode: u.barcode,
-                                        bu_id: moveTo
-                                    });
-                                    await onChanged();
-                                } catch (err) {
-                                    window.alert(err.message);
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}
-                        >
-                            <select
-                                className="lab-input !py-1 text-[11px] max-w-[7rem]"
-                                value={moveTo}
-                                onChange={(e) => setMoveTo(e.target.value)}
-                            >
-                                {bus.map((b) => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <button type="submit" className="btn-ghost px-2 py-1 text-[11px]" disabled={saving}>
-                                Move
-                            </button>
-                        </form>
-                    ) : null}
-                    {u.status === 'at_bu' ? (
-                        <button
-                            type="button"
-                            className="btn-ghost px-2 py-1 text-[11px]"
-                            disabled={saving}
-                            onClick={async () => {
-                                setSaving(true);
-                                try {
-                                    await post('/api/admin/kit-units/consume', { barcode: u.barcode });
-                                    await onChanged();
-                                } catch (err) {
-                                    window.alert(err.message);
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}
-                        >
-                            Consume
-                        </button>
-                    ) : null}
-                    {u.status === 'central' || u.status === 'at_bu' ? (
-                        <button
-                            type="button"
-                            className="text-[11px] text-warning px-2 py-1"
-                            disabled={saving}
-                            onClick={async () => {
-                                if (!window.confirm('Retire this unit? Stock will be adjusted.')) return;
-                                setSaving(true);
-                                try {
-                                    await post('/api/admin/kit-units/retire', { barcode: u.barcode });
-                                    await onChanged();
-                                } catch (err) {
-                                    window.alert(err.message);
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}
-                        >
-                            Retire
-                        </button>
-                    ) : null}
-                </div>
-            </td>
-        </tr>
+        <li className="px-4 py-3">
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+                <p className="min-w-0 flex-1 break-all font-mono text-sm font-medium text-ink">{u.barcode}</p>
+                <span className="shrink-0 font-mono text-eyebrow uppercase text-ink-3">{u.status}</span>
+            </div>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-ink-3">Item</dt>
+                <dd className="min-w-0 break-words text-ink-2">{u.item_name || u.item_id}</dd>
+                <dt className="text-ink-3">Current BU</dt>
+                <dd className="min-w-0 break-words text-ink-2">{u.bu_name || '—'}</dd>
+                <dt className="text-ink-3">Last event</dt>
+                <dd className="text-ink-2 whitespace-normal">{when}</dd>
+            </dl>
+            <div className="mt-2 flex flex-wrap gap-1">{actionForms}</div>
+        </li>
     );
 }

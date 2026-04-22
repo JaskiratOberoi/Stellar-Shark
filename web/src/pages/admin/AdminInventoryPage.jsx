@@ -332,7 +332,7 @@ export function AdminInventoryPage() {
             </section>
 
             <DataTableShell title="Central stock" count={items.length}>
-                <table className="data-table data-table-lab w-full min-w-[860px] table-fixed">
+                <table className="data-table data-table-lab w-full min-w-0 table-fixed hidden md:table">
                     <colgroup>
                         <col style={{ width: '20%' }} />
                         <col style={{ width: '8%' }} />
@@ -407,6 +407,52 @@ export function AdminInventoryPage() {
                         )}
                     </tbody>
                 </table>
+                <ul className="md:hidden m-0 list-none divide-y divide-rule-soft p-0" aria-label="Central stock (mobile)">
+                    {items.length === 0 ? (
+                        <li className="px-4 py-12 text-center text-sm text-ink-3">No central items yet.</li>
+                    ) : (
+                        items.map((i) => {
+                            const codes = Array.isArray(i.supported_test_codes) ? i.supported_test_codes : [];
+                            const tr = i.type === 'kit' ? aggregates.byItem?.[i.id]?.central ?? 0 : '—';
+                            return (
+                                <li key={i.id} className="px-4 py-3">
+                                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{i.name}</p>
+                                        <span className="shrink-0 font-mono text-eyebrow uppercase text-ink-3">
+                                            {i.type}
+                                        </span>
+                                    </div>
+                                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                        <dt className="text-ink-3">Tests/kit</dt>
+                                        <dd className="tabular-nums text-ink-2">
+                                            {i.tests_per_kit != null ? i.tests_per_kit : '—'}
+                                        </dd>
+                                        <dt className="text-ink-3">Tests</dt>
+                                        <dd className="min-w-0 break-words font-mono text-[10px] uppercase text-ink-2">
+                                            {codes.length ? codes.join(', ') : '—'}
+                                        </dd>
+                                        <dt className="text-ink-3">Qty</dt>
+                                        <dd className="tabular-nums text-ink-2">{i.total_quantity}</dd>
+                                        <dt className="text-ink-3">Tracked</dt>
+                                        <dd className="tabular-nums text-ink-2">{tr}</dd>
+                                    </dl>
+                                    {i.type === 'kit' ? (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => openInspect(i)}
+                                                className="inline-flex items-center gap-1 rounded-lg border border-ink-3/30 px-2 py-1 text-xs text-ink-2 hover:bg-surface-muted"
+                                            >
+                                                <Search className="h-3.5 w-3.5" />
+                                                Inspect
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                </li>
+                            );
+                        })
+                    )}
+                </ul>
             </DataTableShell>
 
             <section aria-labelledby="send-stock-heading">
@@ -524,7 +570,7 @@ export function AdminInventoryPage() {
             </div>
 
             <DataTableShell title="Per-BU stock" count={byBu.length}>
-                <table className="data-table data-table-lab text-xs w-full min-w-[640px] table-fixed">
+                <table className="data-table data-table-lab w-full min-w-0 text-xs table-fixed hidden md:table">
                     <colgroup>
                         <col style={{ width: '28%' }} />
                         <col style={{ width: '26%' }} />
@@ -567,6 +613,40 @@ export function AdminInventoryPage() {
                         )}
                     </tbody>
                 </table>
+                <ul className="md:hidden m-0 list-none divide-y divide-rule-soft p-0" aria-label="Per-BU stock (mobile)">
+                    {byBu.length === 0 ? (
+                        <li className="px-4 py-12 text-center text-ink-3">No per-BU rows yet.</li>
+                    ) : (
+                        byBu.map((r) => (
+                            <li key={r.id} className="px-4 py-3">
+                                <div className="mb-1.5 flex items-center justify-between gap-3">
+                                    <p className="min-w-0 flex-1 truncate font-medium text-ink" title={r.item_name}>
+                                        {r.item_name}
+                                    </p>
+                                    <span className="shrink-0 font-mono text-eyebrow uppercase text-ink-3">
+                                        {r.quantity} qty
+                                    </span>
+                                </div>
+                                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                    <dt className="text-ink-3">BU</dt>
+                                    <dd className="min-w-0 break-words text-ink-2">{r.bu_name}</dd>
+                                    <dt className="text-ink-3">Units</dt>
+                                    <dd className="tabular-nums text-ink-2">
+                                        {r.units_at_bu != null ? r.units_at_bu : '—'}
+                                    </dd>
+                                    <dt className="text-ink-3">Tests remaining</dt>
+                                    <dd className="tabular-nums text-ink-2">
+                                        {r.tests_per_kit == null
+                                            ? '—'
+                                            : r.tests_remaining != null
+                                              ? r.tests_remaining
+                                              : 0}
+                                    </dd>
+                                </dl>
+                            </li>
+                        ))
+                    )}
+                </ul>
             </DataTableShell>
 
             <DataTableShell
@@ -574,7 +654,7 @@ export function AdminInventoryPage() {
                 count={txns.length}
                 bodyClassName="max-h-[min(20rem,50vh)] overflow-y-auto"
             >
-                <table className="data-table data-table-lab text-xs w-full min-w-[480px]">
+                <table className="data-table data-table-lab w-full min-w-0 text-xs hidden md:table">
                     <thead>
                         <tr>
                             <th className="pl-5">When</th>
@@ -606,6 +686,35 @@ export function AdminInventoryPage() {
                         )}
                     </tbody>
                 </table>
+                <ul
+                    className="md:hidden m-0 list-none divide-y divide-rule-soft p-0"
+                    aria-label="Recent transactions (mobile)"
+                >
+                    {txns.length === 0 ? (
+                        <li className="px-4 py-12 text-center text-ink-muted">No transactions yet.</li>
+                    ) : (
+                        txns.map((t) => (
+                            <li key={t.id} className="px-4 py-3">
+                                <div className="mb-1.5 flex items-center justify-between gap-3">
+                                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{t.item_name}</p>
+                                    <span className="shrink-0 font-mono text-eyebrow uppercase text-ink-3">
+                                        {t.type}
+                                    </span>
+                                </div>
+                                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                    <dt className="text-ink-3">When</dt>
+                                    <dd className="text-ink-2">
+                                        {new Date(t.created_at).toLocaleString()}
+                                    </dd>
+                                    <dt className="text-ink-3">BU</dt>
+                                    <dd className="min-w-0 break-words text-ink-2">{t.bu_name || '—'}</dd>
+                                    <dt className="text-ink-3">Qty</dt>
+                                    <dd className="tabular-nums text-ink-2">{t.quantity}</dd>
+                                </dl>
+                            </li>
+                        ))
+                    )}
+                </ul>
             </DataTableShell>
 
             {inspectItem ? (

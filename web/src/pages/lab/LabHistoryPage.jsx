@@ -45,6 +45,63 @@ function KindBadge({ kind }) {
     );
 }
 
+/** @param {Record<string, unknown>} e */
+function getEntryRow(e) {
+    const kind = e.entry_kind || 'parameter';
+    const isParam = kind === 'parameter';
+    const isRepeat = kind === 'repeat';
+    const submitterName =
+        e.entered_by_display_name || e.entered_by_username || (e.entered_by ? '—' : 'system');
+    const submitterUsername =
+        e.entered_by_username && e.entered_by_display_name ? e.entered_by_username : null;
+    let parameterCell;
+    if (isRepeat) {
+        parameterCell = (
+            <span className="text-ink-2" title={e.repeat_reason || ''}>
+                {e.repeat_reason || '—'}
+            </span>
+        );
+    } else if (isParam) {
+        parameterCell = e.parameter_name || '—';
+    } else {
+        parameterCell = '—';
+    }
+    let valueCell;
+    if (isRepeat) {
+        valueCell = (
+            <span className="font-mono text-[11px] uppercase tracking-wider text-ink-2">
+                {e.sid || '—'}
+            </span>
+        );
+    } else if (isParam) {
+        valueCell = e.value ?? '—';
+    } else {
+        valueCell = '—';
+    }
+    const valuePlain = isRepeat
+        ? e.sid || '—'
+        : isParam
+          ? (e.value ?? '—')
+          : '—';
+    const paramPlain = isRepeat ? e.repeat_reason || '—' : isParam ? e.parameter_name || '—' : '—';
+    const primary = isRepeat ? e.sid || '—' : paramPlain;
+    return {
+        id: e.id,
+        kind,
+        date: e.date,
+        buName: e.bu_name,
+        machineName: e.machine_name,
+        parameterCell,
+        valueCell,
+        testCode: e.test_code,
+        kitsUsed: isParam ? e.kits_used || '—' : e.kits_used,
+        submitterName,
+        submitterUsername,
+        primary: String(primary),
+        valuePlain: String(valuePlain)
+    };
+}
+
 export function LabHistoryPage() {
     const { user } = useAuth();
     const isSuperAdmin = user?.role === 'super_admin';
@@ -219,7 +276,7 @@ export function LabHistoryPage() {
             </div>
 
             <DataTableShell title="Entries" count={filtered.length}>
-                <table className="data-table data-table-lab text-xs w-full min-w-[760px]">
+                <table className="data-table data-table-lab text-xs w-full min-w-0 hidden md:table">
                     <thead>
                         <tr>
                             <th className="pl-5">Date</th>
@@ -245,68 +302,29 @@ export function LabHistoryPage() {
                             </tr>
                         ) : (
                             filtered.map((e) => {
-                                const kind = e.entry_kind || 'parameter';
-                                const isParam = kind === 'parameter';
-                                const isRepeat = kind === 'repeat';
-                                const submitterName =
-                                    e.entered_by_display_name ||
-                                    e.entered_by_username ||
-                                    (e.entered_by ? '—' : 'system');
-                                const submitterUsername =
-                                    e.entered_by_username && e.entered_by_display_name
-                                        ? e.entered_by_username
-                                        : null;
-                                let parameterCell;
-                                if (isRepeat) {
-                                    parameterCell = (
-                                        <span
-                                            className="text-ink-2"
-                                            title={e.repeat_reason || ''}
-                                        >
-                                            {e.repeat_reason || '—'}
-                                        </span>
-                                    );
-                                } else if (isParam) {
-                                    parameterCell = e.parameter_name || '—';
-                                } else {
-                                    parameterCell = '—';
-                                }
-                                let valueCell;
-                                if (isRepeat) {
-                                    valueCell = (
-                                        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-2">
-                                            {e.sid || '—'}
-                                        </span>
-                                    );
-                                } else if (isParam) {
-                                    valueCell = e.value ?? '—';
-                                } else {
-                                    valueCell = '—';
-                                }
+                                const r = getEntryRow(e);
                                 return (
                                     <tr
-                                        key={e.id}
+                                        key={r.id}
                                         className="hover:bg-surface-muted/50 transition-colors"
                                     >
-                                        <td className="pl-5 py-2.5 whitespace-nowrap">{e.date}</td>
-                                        <td className="py-2.5">{e.bu_name}</td>
-                                        <td className="py-2.5">{e.machine_name}</td>
-                                        <td className="py-2.5">{parameterCell}</td>
+                                        <td className="pl-5 py-2.5 whitespace-nowrap">{r.date}</td>
+                                        <td className="py-2.5">{r.buName}</td>
+                                        <td className="py-2.5">{r.machineName}</td>
+                                        <td className="py-2.5">{r.parameterCell}</td>
                                         <td className="py-2.5">
-                                            <KindBadge kind={kind} />
+                                            <KindBadge kind={r.kind} />
                                         </td>
                                         <td className="py-2.5 font-mono text-[11px] uppercase tracking-wider text-ink-2">
-                                            {e.test_code || '—'}
+                                            {r.testCode || '—'}
                                         </td>
-                                        <td className="py-2.5 tabular-nums">{valueCell}</td>
-                                        <td className="py-2.5 tabular-nums">
-                                            {isParam ? (e.kits_used || '—') : e.kits_used}
-                                        </td>
+                                        <td className="py-2.5 tabular-nums">{r.valueCell}</td>
+                                        <td className="py-2.5 tabular-nums">{r.kitsUsed}</td>
                                         <td className="pr-5 py-2.5 whitespace-nowrap">
-                                            <span className="text-ink">{submitterName}</span>
-                                            {submitterUsername ? (
+                                            <span className="text-ink">{r.submitterName}</span>
+                                            {r.submitterUsername ? (
                                                 <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wider text-ink-3">
-                                                    @{submitterUsername}
+                                                    @{r.submitterUsername}
                                                 </span>
                                             ) : null}
                                         </td>
@@ -316,6 +334,54 @@ export function LabHistoryPage() {
                         )}
                     </tbody>
                 </table>
+                <ul className="md:hidden list-none m-0 p-0 divide-y divide-rule-soft" aria-label="Entries (mobile)">
+                    {filtered.length === 0 ? (
+                        <li className="px-4 py-14 text-center text-sm text-ink-muted">
+                            No entries match the current filters.
+                        </li>
+                    ) : (
+                        filtered.map((e) => {
+                            const r = getEntryRow(e);
+                            return (
+                                <li key={r.id} className="px-4 py-3">
+                                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                                        <p className="min-w-0 flex-1 truncate font-medium text-ink" title={r.primary}>
+                                            {r.primary}
+                                        </p>
+                                        <span className="shrink-0">
+                                            <KindBadge kind={r.kind} />
+                                        </span>
+                                    </div>
+                                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                        <dt className="text-ink-3">Date</dt>
+                                        <dd className="text-ink-2 tabular-nums">{r.date}</dd>
+                                        <dt className="text-ink-3">BU</dt>
+                                        <dd className="text-ink-2">{r.buName}</dd>
+                                        <dt className="text-ink-3">Machine</dt>
+                                        <dd className="min-w-0 break-words text-ink-2">{r.machineName}</dd>
+                                        <dt className="text-ink-3">Test code</dt>
+                                        <dd className="font-mono uppercase tracking-wider text-ink-2">
+                                            {r.testCode || '—'}
+                                        </dd>
+                                        <dt className="text-ink-3">Value</dt>
+                                        <dd className="tabular-nums text-ink-2">{r.valuePlain}</dd>
+                                        <dt className="text-ink-3">Kits</dt>
+                                        <dd className="tabular-nums text-ink-2">{r.kitsUsed}</dd>
+                                        <dt className="text-ink-3">Technician</dt>
+                                        <dd className="min-w-0 break-words text-ink-2">
+                                            {r.submitterName}
+                                            {r.submitterUsername ? (
+                                                <span className="ml-1 font-mono text-[10px] uppercase text-ink-3">
+                                                    @{r.submitterUsername}
+                                                </span>
+                                            ) : null}
+                                        </dd>
+                                    </dl>
+                                </li>
+                            );
+                        })
+                    )}
+                </ul>
             </DataTableShell>
         </PageShell>
     );

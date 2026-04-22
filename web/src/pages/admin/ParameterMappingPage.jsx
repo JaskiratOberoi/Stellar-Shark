@@ -15,10 +15,14 @@ import { ArrowLeft, Link2 } from 'lucide-react';
 import { PageShell } from '../../components/PageShell.jsx';
 import { apiFetch } from '../../apiClient.js';
 
-const W = 220;
-const GAP_Y = 72;
-const LEFT_X = 40;
-const RIGHT_X = 420;
+function readLayoutDims() {
+    if (typeof window === 'undefined') {
+        return { w: 220, gapY: 72, leftX: 40, rightX: 420 };
+    }
+    return window.matchMedia('(max-width: 640px)').matches
+        ? { w: 160, gapY: 56, leftX: 24, rightX: 200 }
+        : { w: 220, gapY: 72, leftX: 40, rightX: 420 };
+}
 
 export function ParameterMappingPage() {
     const [parameters, setParameters] = useState([]);
@@ -28,7 +32,8 @@ export function ParameterMappingPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
 
-    const buildNodesEdges = useCallback((params, machs, maps, savedLayout) => {
+    const buildNodesEdges = useCallback((params, machs, maps, savedLayout, dim = readLayoutDims()) => {
+        const { w, gapY, leftX, rightX } = dim;
         const nodes = [];
         const edges = [];
         const posMap = new Map();
@@ -39,14 +44,14 @@ export function ParameterMappingPage() {
         }
         params.forEach((p, i) => {
             const id = `p-${p.id}`;
-            const pos = posMap.get(id) || { x: LEFT_X, y: 40 + i * GAP_Y };
+            const pos = posMap.get(id) || { x: leftX, y: 40 + i * gapY };
             nodes.push({
                 id,
                 position: pos,
                 data: { label: p.name },
                 type: 'default',
                 style: {
-                    width: W,
+                    width: w,
                     borderRadius: 16,
                     border: '1px solid #e2e8f0',
                     padding: 12,
@@ -58,14 +63,14 @@ export function ParameterMappingPage() {
         });
         machs.forEach((m, i) => {
             const id = `m-${m.id}`;
-            const pos = posMap.get(id) || { x: RIGHT_X, y: 40 + i * GAP_Y };
+            const pos = posMap.get(id) || { x: rightX, y: 40 + i * gapY };
             nodes.push({
                 id,
                 position: pos,
                 data: { label: `${m.name} (${m.model})` },
                 type: 'default',
                 style: {
-                    width: W,
+                    width: w,
                     borderRadius: 16,
                     border: '1px solid #0f172a',
                     padding: 12,
@@ -127,7 +132,8 @@ export function ParameterMappingPage() {
                 pj.parameters || [],
                 mj.machines || [],
                 mapj.mappings || [],
-                layout
+                layout,
+                readLayoutDims()
             );
             setNodes(n);
             setEdges(e);
@@ -237,6 +243,9 @@ export function ParameterMappingPage() {
             maxWidthClass="max-w-[1400px]"
             headerAction={headerActions}
         >
+            <p className="mb-3 text-sm text-ink-3 border border-dashed border-ink-3/30 rounded-lg px-3 py-2 bg-surface-2/50 md:hidden">
+                Best viewed on a larger screen for editing.
+            </p>
             <div className="lab-card p-0 overflow-hidden shadow-card" style={{ height: 'min(70vh, 640px)' }}>
                 <ReactFlowProvider>
                     <ReactFlow
