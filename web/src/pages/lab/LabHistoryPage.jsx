@@ -53,6 +53,7 @@ export function LabHistoryPage() {
     const [entries, setEntries] = useState([]);
     const [error, setError] = useState(null);
     const [filterTestCode, setFilterTestCode] = useState('');
+    const [filterSid, setFilterSid] = useState('');
 
     useEffect(() => {
         (async () => {
@@ -71,11 +72,16 @@ export function LabHistoryPage() {
 
     const filtered = useMemo(() => {
         const code = filterTestCode.trim().toUpperCase();
-        if (!code) return entries;
-        return entries.filter(
-            (e) => (e.test_code || '').toUpperCase() === code
-        );
-    }, [entries, filterTestCode]);
+        const sid = filterSid.trim().toUpperCase();
+        if (!code && !sid) return entries;
+        return entries.filter((e) => {
+            if (code && (e.test_code || '').toUpperCase() !== code) return false;
+            // Substring match -- techs may scan a partial SID. Non-repeat rows
+            // have sid=null so they naturally drop out when this filter is set.
+            if (sid && !(e.sid || '').toUpperCase().includes(sid)) return false;
+            return true;
+        });
+    }, [entries, filterTestCode, filterSid]);
 
     const activeRangeId = useMemo(() => {
         for (const p of RANGE_PRESETS) {
@@ -153,33 +159,61 @@ export function LabHistoryPage() {
                         })}
                     </div>
                 </div>
-                <div>
-                    <label
-                        className="block text-xs font-medium text-ink-2 mb-1.5"
-                        htmlFor="hist-testcode"
-                    >
-                        Filter by test code{' '}
-                        <span className="text-ink-3 font-normal">(optional)</span>
-                    </label>
-                    <input
-                        id="hist-testcode"
-                        type="text"
-                        maxLength={16}
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="lab-input w-full md:max-w-xs font-mono uppercase tracking-wider"
-                        placeholder="e.g. BI221"
-                        value={filterTestCode}
-                        onChange={(e) => setFilterTestCode(e.target.value)}
-                        onBlur={(e) =>
-                            setFilterTestCode(e.target.value.trim().toUpperCase().slice(0, 16))
-                        }
-                    />
-                    <div className="mt-2">
-                        <TestCodeQuickPicks
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label
+                            className="block text-xs font-medium text-ink-2 mb-1.5"
+                            htmlFor="hist-testcode"
+                        >
+                            Filter by test code{' '}
+                            <span className="text-ink-3 font-normal">(optional)</span>
+                        </label>
+                        <input
+                            id="hist-testcode"
+                            type="text"
+                            maxLength={16}
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="lab-input w-full font-mono uppercase tracking-wider"
+                            placeholder="e.g. BI221"
                             value={filterTestCode}
-                            onChange={setFilterTestCode}
+                            onChange={(e) => setFilterTestCode(e.target.value)}
+                            onBlur={(e) =>
+                                setFilterTestCode(e.target.value.trim().toUpperCase().slice(0, 16))
+                            }
                         />
+                        <div className="mt-2">
+                            <TestCodeQuickPicks
+                                value={filterTestCode}
+                                onChange={setFilterTestCode}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label
+                            className="block text-xs font-medium text-ink-2 mb-1.5"
+                            htmlFor="hist-sid"
+                        >
+                            Filter by SID{' '}
+                            <span className="text-ink-3 font-normal">(optional)</span>
+                        </label>
+                        <input
+                            id="hist-sid"
+                            type="text"
+                            maxLength={64}
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="lab-input w-full font-mono uppercase tracking-wider"
+                            placeholder="e.g. S0001234"
+                            value={filterSid}
+                            onChange={(e) => setFilterSid(e.target.value)}
+                            onBlur={(e) =>
+                                setFilterSid(e.target.value.trim().toUpperCase().slice(0, 64))
+                            }
+                        />
+                        <p className="mt-2 text-xs text-ink-3">
+                            Substring match. Limits results to repeat rows for that sample.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -213,6 +247,7 @@ export function LabHistoryPage() {
                             filtered.map((e) => {
                                 const kind = e.entry_kind || 'parameter';
                                 const isParam = kind === 'parameter';
+                                const isRepeat = kind === 'repeat';
                                 const submitterName =
                                     e.entered_by_display_name ||
                                     e.entered_by_username ||
@@ -221,6 +256,33 @@ export function LabHistoryPage() {
                                     e.entered_by_username && e.entered_by_display_name
                                         ? e.entered_by_username
                                         : null;
+                                let parameterCell;
+                                if (isRepeat) {
+                                    parameterCell = (
+                                        <span
+                                            className="text-ink-2"
+                                            title={e.repeat_reason || ''}
+                                        >
+                                            {e.repeat_reason || '—'}
+                                        </span>
+                                    );
+                                } else if (isParam) {
+                                    parameterCell = e.parameter_name || '—';
+                                } else {
+                                    parameterCell = '—';
+                                }
+                                let valueCell;
+                                if (isRepeat) {
+                                    valueCell = (
+                                        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-2">
+                                            {e.sid || '—'}
+                                        </span>
+                                    );
+                                } else if (isParam) {
+                                    valueCell = e.value ?? '—';
+                                } else {
+                                    valueCell = '—';
+                                }
                                 return (
                                     <tr
                                         key={e.id}
@@ -229,18 +291,14 @@ export function LabHistoryPage() {
                                         <td className="pl-5 py-2.5 whitespace-nowrap">{e.date}</td>
                                         <td className="py-2.5">{e.bu_name}</td>
                                         <td className="py-2.5">{e.machine_name}</td>
-                                        <td className="py-2.5">
-                                            {isParam ? (e.parameter_name || '—') : '—'}
-                                        </td>
+                                        <td className="py-2.5">{parameterCell}</td>
                                         <td className="py-2.5">
                                             <KindBadge kind={kind} />
                                         </td>
                                         <td className="py-2.5 font-mono text-[11px] uppercase tracking-wider text-ink-2">
                                             {e.test_code || '—'}
                                         </td>
-                                        <td className="py-2.5 tabular-nums">
-                                            {isParam ? (e.value ?? '—') : '—'}
-                                        </td>
+                                        <td className="py-2.5 tabular-nums">{valueCell}</td>
                                         <td className="py-2.5 tabular-nums">
                                             {isParam ? (e.kits_used || '—') : e.kits_used}
                                         </td>

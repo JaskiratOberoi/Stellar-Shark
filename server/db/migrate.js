@@ -226,6 +226,35 @@ async function migrate() {
                AND kits_used > 0;
         `);
 
+        await client.query(`
+            ALTER TABLE lab_entries
+              ADD COLUMN IF NOT EXISTS sid TEXT;
+        `);
+        await client.query(`
+            ALTER TABLE lab_entries
+              ADD COLUMN IF NOT EXISTS repeat_reason TEXT;
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_lab_entries_sid
+              ON lab_entries (sid) WHERE sid IS NOT NULL;
+        `);
+        // Backfill pre-audit-trail repeat rows so the new CHECK can be added
+        // without rejecting historical data.
+        await client.query(`
+            UPDATE lab_entries
+               SET sid = 'LEGACY',
+                   repeat_reason = 'Pre-audit-trail entry'
+             WHERE entry_kind = 'repeat'
+               AND (sid IS NULL OR repeat_reason IS NULL);
+        `);
+        await client.query(`
+            ALTER TABLE lab_entries DROP CONSTRAINT IF EXISTS lab_entries_repeat_audit_check;
+        `);
+        await client.query(`
+            ALTER TABLE lab_entries ADD CONSTRAINT lab_entries_repeat_audit_check
+              CHECK ((entry_kind <> 'repeat') OR (sid IS NOT NULL AND repeat_reason IS NOT NULL));
+        `);
+
         // daily_validation.shark_count holds LIS sample totals from the Teller counter (legacy column name).
         await client.query(`
             CREATE TABLE IF NOT EXISTS daily_validation (

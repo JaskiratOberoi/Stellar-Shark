@@ -5,6 +5,7 @@ import { apiFetch } from '../../apiClient.js';
 import { DateQuickPicks } from '../../components/lab/DateQuickPicks.jsx';
 import { TestCodeQuickPicks } from '../../components/lab/TestCodeQuickPicks.jsx';
 import { KitToggle } from '../../components/lab/KitToggle.jsx';
+import { RepeatRunsEditor } from '../../components/lab/RepeatRunsEditor.jsx';
 import { HairlineRule } from '../../components/nexus/HairlineRule.jsx';
 import { SectionMarker } from '../../components/nexus/SectionMarker.jsx';
 
@@ -29,7 +30,7 @@ export function LabEntryPage() {
     const [qcEnabled, setQcEnabled] = useState(false);
     const [qcKits, setQcKits] = useState(0);
     const [repeatEnabled, setRepeatEnabled] = useState(false);
-    const [repeatRuns, setRepeatRuns] = useState(0);
+    const [repeats, setRepeats] = useState([]);
     const [message, setMessage] = useState(null);
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -78,6 +79,23 @@ export function LabEntryPage() {
             if (!normalisedTestCode) {
                 throw new Error('Test code is required.');
             }
+            let repeatsPayload = null;
+            if (repeatEnabled) {
+                if (repeats.length === 0) {
+                    throw new Error('Add at least one repeat run, or turn the toggle off.');
+                }
+                const cleaned = repeats.map((r) => ({
+                    sid: String(r.sid || '').trim().toUpperCase(),
+                    reason: String(r.reason || '').trim()
+                }));
+                const missingIdx = cleaned.findIndex((r) => !r.sid || !r.reason);
+                if (missingIdx !== -1) {
+                    throw new Error(
+                        `Repeat run #${missingIdx + 1} is missing a Sample ID or reason.`
+                    );
+                }
+                repeatsPayload = cleaned;
+            }
             const rows = params.map((p) => ({
                 parameter_id: p.id,
                 value: values[p.id] != null && values[p.id] !== '' ? Number(values[p.id]) : null,
@@ -92,7 +110,7 @@ export function LabEntryPage() {
                     rows,
                     kits_used_total: kitsUsed,
                     qc_kits: qcEnabled ? Number(qcKits) || 0 : null,
-                    repeat_runs: repeatEnabled ? Number(repeatRuns) || 0 : null,
+                    repeats: repeatsPayload,
                     test_code: normalisedTestCode
                 })
             });
@@ -102,7 +120,7 @@ export function LabEntryPage() {
             setValues({});
             setKitsUsed(0);
             setQcKits(0);
-            setRepeatRuns(0);
+            setRepeats([]);
             // date, testCode and toggle positions are kept on purpose — lab techs
             // typically submit several machines back-to-back for the same date and test.
         } catch (err) {
@@ -264,17 +282,17 @@ export function LabEntryPage() {
                         onValueChange={setQcKits}
                         inputLabel="QC / Calibration count"
                     />
-                    <KitToggle
+                    <RepeatRunsEditor
                         id="lab-repeat-runs"
-                        label="Repeat runs"
                         enabled={repeatEnabled}
                         onToggle={(v) => {
                             setRepeatEnabled(v);
-                            if (!v) setRepeatRuns(0);
+                            // Seed one empty fieldset on enable so the tech sees the inputs
+                            // without needing to bump the stepper.
+                            setRepeats(v ? (repeats.length ? repeats : [{ sid: '', reason: '' }]) : []);
                         }}
-                        value={repeatRuns}
-                        onValueChange={setRepeatRuns}
-                        inputLabel="Repeat run count"
+                        repeats={repeats}
+                        onChange={setRepeats}
                     />
                 </div>
 

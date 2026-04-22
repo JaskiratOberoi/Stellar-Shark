@@ -80,6 +80,33 @@ function parseOptionalKitCount(raw) {
     return Math.floor(n);
 }
 
+// Repeat audit shape: array of { sid, reason }, one DB row per item.
+// Returns { ok: true, repeats } on success, { ok: false, error } on validation
+// failure so the caller can short-circuit with a 400.
+function parseRepeats(raw) {
+    if (raw == null) return { ok: true, repeats: [] };
+    if (!Array.isArray(raw)) {
+        return { ok: false, error: 'repeats must be an array' };
+    }
+    const out = [];
+    for (let i = 0; i < raw.length; i += 1) {
+        const item = raw[i];
+        if (!item || typeof item !== 'object') {
+            return { ok: false, error: `repeats[${i}] must be an object` };
+        }
+        const sid = String(item.sid ?? '').trim().toUpperCase();
+        const reason = String(item.reason ?? '').trim();
+        if (!sid) return { ok: false, error: `repeats[${i}].sid is required` };
+        if (sid.length > 64) return { ok: false, error: `repeats[${i}].sid exceeds 64 chars` };
+        if (!reason) return { ok: false, error: `repeats[${i}].reason is required` };
+        if (reason.length > 500) {
+            return { ok: false, error: `repeats[${i}].reason exceeds 500 chars` };
+        }
+        out.push({ sid, reason });
+    }
+    return { ok: true, repeats: out };
+}
+
 router.post('/entries', requireLabTech, async (req, res) => {
     try {
         const date = req.body?.date != null ? String(req.body.date) : '';
@@ -89,7 +116,7 @@ router.post('/entries', requireLabTech, async (req, res) => {
         const kitsUsedTotal =
             req.body?.kits_used_total != null ? Number(req.body.kits_used_total) : null;
         const qcKits = parseOptionalKitCount(req.body?.qc_kits);
-        const repeatRuns = parseOptionalKitCount(req.body?.repeat_runs);
+        const repeatsParsed = parseRepeats(req.body?.repeats);
         const testCode = normaliseTestCode(req.body?.test_code);
         if (!date || !machineId || !buId) {
             return res.status(400).json({ error: 'date, machine_id, bu_id required' });
@@ -97,6 +124,10 @@ router.post('/entries', requireLabTech, async (req, res) => {
         if (!testCode) {
             return res.status(400).json({ error: 'test_code required' });
         }
+        if (!repeatsParsed.ok) {
+            return res.status(400).json({ error: repeatsParsed.error });
+        }
+        const repeats = repeatsParsed.repeats;
         const pool = getPool();
         const bus = await loadUserBus(pool, req.user.id);
         const buIds = new Set(bus.map((b) => b.id));
@@ -141,12 +172,17 @@ router.post('/entries', requireLabTech, async (req, res) => {
                 );
                 extra += 1;
             }
-            if (repeatRuns != null) {
+            // One row per repeated SID so the audit trail surfaces per-sample in
+            // history. SUM(kits_used) WHERE entry_kind='repeat' still equals N
+            // for downstream daily aggregations.
+            for (const r of repeats) {
                 const id = newId('lab');
                 await client.query(
-                    `INSERT INTO lab_entries (id, date, bu_id, machine_id, parameter_id, value, kits_used, entered_by, entry_kind, test_code)
-                     VALUES ($1, $2::date, $3, $4, NULL, NULL, $5, $6, 'repeat', $7)`,
-                    [id, date, buId, machineId, repeatRuns, userId, testCode]
+                    `INSERT INTO lab_entries
+                       (id, date, bu_id, machine_id, parameter_id, value,
+                        kits_used, entered_by, entry_kind, test_code, sid, repeat_reason)
+                     VALUES ($1, $2::date, $3, $4, NULL, NULL, 1, $5, 'repeat', $6, $7, $8)`,
+                    [id, date, buId, machineId, userId, testCode, r.sid, r.reason]
                 );
                 extra += 1;
             }
