@@ -653,7 +653,11 @@ router.get('/inventory/by-bu', async (_req, res) => {
                     i.type AS item_type,
                     i.tests_per_kit,
                     i.supported_test_codes,
-                    (ib.quantity * COALESCE(i.tests_per_kit, 0))::int AS tests_remaining
+                    (ib.quantity * COALESCE(i.tests_per_kit, 0))::int AS tests_remaining,
+                    (SELECT COUNT(*)::int FROM kit_units ku
+                      WHERE ku.item_id = i.id
+                        AND ku.current_bu_id = ib.bu_id
+                        AND ku.status = 'at_bu') AS units_at_bu
              FROM inventory_bu ib
              JOIN business_units bu ON bu.id = ib.bu_id
              JOIN inventory_items i ON i.id = ib.item_id
@@ -737,6 +741,477 @@ router.get('/inventory/transactions', async (req, res) => {
             [limit]
         );
         res.json({ transactions: r.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+/**
+ * @returns {{ error?: string, barcode: string }}
+ */
+function parseKitBarcodeFromBody(body) {
+    const raw = body?.barcode;
+    if (raw == null) return { error: 'barcode required' };
+    const barcode = String(raw).trim();
+    if (!barcode) return { error: 'barcode required' };
+    if (barcode.length > 128) return { error: 'barcode is at most 128 characters' };
+    return { barcode };
+}
+
+// --- Kit units (physical barcoded kits) ---
+router.get('/kit-units/aggregates', async (_req, res) => {
+    try {
+        const pool = getPool();
+        const r = await pool.query(
+            `SELECT item_id, status, COUNT(*)::int AS c
+             FROM kit_units
+             GROUP BY item_id, status`
+        );
+        const byItem = {};
+        for (const row of r.rows) {
+            if (!byItem[row.item_id]) {
+                byItem[row.item_id] = { central: 0, at_bu: 0, consumed: 0, retired: 0 };
+            }
+            const k = row.status;
+            if (k === 'central') byItem[row.item_id].central = row.c;
+            else if (k === 'at_bu') byItem[row.item_id].at_bu = row.c;
+            else if (k === 'consumed') byItem[row.item_id].consumed = row.c;
+            else if (k === 'retired') byItem[row.item_id].retired = row.c;
+        }
+        res.json({ byItem });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+router.get('/kit-units', async (req, res) => {
+    try {
+        const pool = getPool();
+        if (req.query.barcode) {
+            const p = parseKitBarcodeFromBody({ barcode: req.query.barcode });
+            if (p.error) {
+                return res.status(400).json({ error: p.error });
+            }
+            const r = await pool.query(
+                `SELECT ku.*, i.name AS item_name, i.type AS item_type, bu.name AS bu_name
+                 FROM kit_units ku
+                 JOIN inventory_items i ON i.id = ku.item_id
+                 LEFT JOIN business_units bu ON bu.id = ku.current_bu_id
+                 WHERE LOWER(ku.barcode) = LOWER($1)`,
+                [p.barcode]
+            );
+            if (!r.rows.length) {
+                return res.status(404).json({ error: 'Not found' });
+            }
+            const row = r.rows[0];
+            return res.json({
+                unit: {
+                    id: row.id,
+                    item_id: row.item_id,
+                    barcode: row.barcode,
+                    status: row.status,
+                    current_bu_id: row.current_bu_id,
+                    registered_at: row.registered_at,
+                    last_event_at: row.last_event_at
+                },
+                item: { id: row.item_id, name: row.item_name, type: row.item_type },
+                current_bu: row.current_bu_id
+                    ? { id: row.current_bu_id, name: row.bu_name }
+                    : null
+            });
+        }
+        const itemId = req.query.item_id != null ? String(req.query.item_id) : null;
+        const status = req.query.status != null ? String(req.query.status) : null;
+        const buId = req.query.bu_id != null ? String(req.query.bu_id) : null;
+        const limit = Math.min(Number(req.query.limit) || 200, 500);
+        const conds = [];
+        const vals = [];
+        let n = 1;
+        if (itemId) {
+            conds.push(`ku.item_id = $${n++}`);
+            vals.push(itemId);
+        }
+        if (status) {
+            conds.push(`ku.status = $${n++}`);
+            vals.push(status);
+        }
+        if (buId) {
+            conds.push(`ku.current_bu_id = $${n++}`);
+            vals.push(buId);
+        }
+        const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+        vals.push(limit);
+        const r = await pool.query(
+            `SELECT ku.*, i.name AS item_name, bu.name AS bu_name
+             FROM kit_units ku
+             JOIN inventory_items i ON i.id = ku.item_id
+             LEFT JOIN business_units bu ON bu.id = ku.current_bu_id
+             ${where}
+             ORDER BY ku.last_event_at DESC, ku.registered_at DESC
+             LIMIT $${n}`,
+            vals
+        );
+        res.json({ units: r.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+/** Register a physical unit: adds stock (unless link_only) */
+router.post('/kit-units', async (req, res) => {
+    try {
+        const p = parseKitBarcodeFromBody(req.body);
+        if (p.error) {
+            return res.status(400).json({ error: p.error });
+        }
+        const itemId = req.body?.item_id != null ? String(req.body.item_id) : null;
+        if (!itemId) {
+            return res.status(400).json({ error: 'item_id required' });
+        }
+        const linkOnly = Boolean(req.body?.link_only);
+        const userId = req.user?.id;
+        const pool = getPool();
+        const item = await pool.query(`SELECT type FROM inventory_items WHERE id = $1`, [itemId]);
+        if (!item.rows.length) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+        if (item.rows[0].type !== 'kit') {
+            return res.status(400).json({ error: 'Item must be a kit' });
+        }
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const id = newId('ku');
+            await client.query(
+                `INSERT INTO kit_units (id, item_id, barcode, status, current_bu_id, registered_by, last_event_at)
+                 VALUES ($1, $2, $3, 'central', NULL, $4, NOW())`,
+                [id, itemId, p.barcode, userId || null]
+            );
+            if (linkOnly) {
+                const txnId = newId('txn');
+                await client.query(
+                    `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                     VALUES ($1, $2, NULL, 0, 'adjustment', 'link kit barcode (no stock delta)', $3, $4)`,
+                    [txnId, itemId, userId || null, id]
+                );
+            } else {
+                await client.query(`UPDATE inventory_items SET total_quantity = total_quantity + 1 WHERE id = $1`, [
+                    itemId
+                ]);
+                const txnId = newId('txn');
+                await client.query(
+                    `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                     VALUES ($1, $2, NULL, 1, 'adjustment', 'register kit unit', $3, $4)`,
+                    [txnId, itemId, userId || null, id]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            if (e && e.code === '23505') {
+                return res.status(409).json({ error: 'This barcode is already registered' });
+            }
+            throw e;
+        } finally {
+            client.release();
+        }
+        const r = await pool.query(
+            `SELECT * FROM kit_units WHERE LOWER(barcode) = LOWER($1)`,
+            [p.barcode]
+        );
+        res.json({ unit: r.rows[0] });
+    } catch (err) {
+        if (err && err.code === '23505') {
+            return res.status(409).json({ error: 'This barcode is already registered' });
+        }
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+/** Move a central unit to a business unit. */
+router.post('/kit-units/transfer', async (req, res) => {
+    try {
+        const p = parseKitBarcodeFromBody(req.body);
+        if (p.error) {
+            return res.status(400).json({ error: p.error });
+        }
+        const buId = req.body?.bu_id != null ? String(req.body.bu_id) : null;
+        if (!buId) {
+            return res.status(400).json({ error: 'bu_id required' });
+        }
+        const userId = req.user?.id;
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const cur = await client.query(
+                `SELECT ku.id, ku.item_id, ku.status
+                 FROM kit_units ku
+                 WHERE LOWER(ku.barcode) = LOWER($1)
+                 FOR UPDATE`,
+                [p.barcode]
+            );
+            if (!cur.rows.length) {
+                throw new Error('Unit not found');
+            }
+            const { id: kuId, item_id: itemId, status } = cur.rows[0];
+            if (status !== 'central') {
+                throw new Error('Unit is not in central stock');
+            }
+            const tq = await client.query(
+                `SELECT total_quantity FROM inventory_items WHERE id = $1 FOR UPDATE`,
+                [itemId]
+            );
+            if (tq.rows[0].total_quantity < 1) {
+                throw new Error('Insufficient central stock');
+            }
+            await client.query(`UPDATE inventory_items SET total_quantity = total_quantity - 1 WHERE id = $1`, [
+                itemId
+            ]);
+            const existing = await client.query(
+                `SELECT id, quantity FROM inventory_bu WHERE item_id = $1 AND bu_id = $2`,
+                [itemId, buId]
+            );
+            if (existing.rows.length) {
+                await client.query(`UPDATE inventory_bu SET quantity = quantity + 1 WHERE id = $1`, [
+                    existing.rows[0].id
+                ]);
+            } else {
+                const ibuId = newId('ibu');
+                await client.query(
+                    `INSERT INTO inventory_bu (id, item_id, bu_id, quantity) VALUES ($1, $2, $3, 1)`,
+                    [ibuId, itemId, buId]
+                );
+            }
+            await client.query(
+                `UPDATE kit_units SET status = 'at_bu', current_bu_id = $1, last_event_at = NOW() WHERE id = $2`,
+                [buId, kuId]
+            );
+            const txnId = newId('txn');
+            await client.query(
+                `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                 VALUES ($1, $2, $3, 1, 'send', 'kit unit transfer (scan)', $4, $5)`,
+                [txnId, itemId, buId, userId || null, kuId]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: e.message || String(e) });
+        } finally {
+            client.release();
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+/** Move an at_bu unit to another business unit. */
+router.post('/kit-units/reassign', async (req, res) => {
+    try {
+        const p = parseKitBarcodeFromBody(req.body);
+        if (p.error) {
+            return res.status(400).json({ error: p.error });
+        }
+        const buId = req.body?.bu_id != null ? String(req.body.bu_id) : null;
+        if (!buId) {
+            return res.status(400).json({ error: 'bu_id required' });
+        }
+        const userId = req.user?.id;
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const cur = await client.query(
+                `SELECT ku.id, ku.item_id, ku.status, ku.current_bu_id
+                 FROM kit_units ku
+                 WHERE LOWER(ku.barcode) = LOWER($1)
+                 FOR UPDATE`,
+                [p.barcode]
+            );
+            if (!cur.rows.length) {
+                throw new Error('Unit not found');
+            }
+            const { id: kuId, item_id: itemId, status, current_bu_id: fromBu } = cur.rows[0];
+            if (status !== 'at_bu' || !fromBu) {
+                throw new Error('Unit is not at a business unit');
+            }
+            if (fromBu === buId) {
+                throw new Error('Unit is already at this business unit');
+            }
+            const fromRow = await client.query(
+                `SELECT id, quantity FROM inventory_bu WHERE item_id = $1 AND bu_id = $2 FOR UPDATE`,
+                [itemId, fromBu]
+            );
+            if (!fromRow.rows.length || fromRow.rows[0].quantity < 1) {
+                throw new Error('Source BU stock mismatch');
+            }
+            await client.query(`UPDATE inventory_bu SET quantity = quantity - 1 WHERE id = $1`, [fromRow.rows[0].id]);
+            const toEx = await client.query(
+                `SELECT id, quantity FROM inventory_bu WHERE item_id = $1 AND bu_id = $2 FOR UPDATE`,
+                [itemId, buId]
+            );
+            if (toEx.rows.length) {
+                await client.query(`UPDATE inventory_bu SET quantity = quantity + 1 WHERE id = $1`, [toEx.rows[0].id]);
+            } else {
+                const ibuId = newId('ibu');
+                await client.query(
+                    `INSERT INTO inventory_bu (id, item_id, bu_id, quantity) VALUES ($1, $2, $3, 1)`,
+                    [ibuId, itemId, buId]
+                );
+            }
+            await client.query(
+                `UPDATE kit_units SET current_bu_id = $1, last_event_at = NOW() WHERE id = $2`,
+                [buId, kuId]
+            );
+            const txnId = newId('txn');
+            await client.query(
+                `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                 VALUES ($1, $2, $3, 0, 'adjustment', $4, $5, $6)`,
+                [
+                    txnId,
+                    itemId,
+                    buId,
+                    `reassign kit unit from BU ${fromBu}`,
+                    userId || null,
+                    kuId
+                ]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: e.message || String(e) });
+        } finally {
+            client.release();
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+router.post('/kit-units/consume', async (req, res) => {
+    try {
+        const p = parseKitBarcodeFromBody(req.body);
+        if (p.error) {
+            return res.status(400).json({ error: p.error });
+        }
+        const userId = req.user?.id;
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const cur = await client.query(
+                `SELECT ku.id, ku.item_id, ku.status, ku.current_bu_id
+                 FROM kit_units ku
+                 WHERE LOWER(ku.barcode) = LOWER($1)
+                 FOR UPDATE`,
+                [p.barcode]
+            );
+            if (!cur.rows.length) {
+                throw new Error('Unit not found');
+            }
+            const { id: kuId, item_id: itemId, status, current_bu_id: atBu } = cur.rows[0];
+            if (status !== 'at_bu' || !atBu) {
+                throw new Error('Unit is not at a business unit (cannot consume)');
+            }
+            const ib = await client.query(
+                `SELECT id, quantity FROM inventory_bu WHERE item_id = $1 AND bu_id = $2 FOR UPDATE`,
+                [itemId, atBu]
+            );
+            if (!ib.rows.length || ib.rows[0].quantity < 1) {
+                throw new Error('Per-BU stock mismatch');
+            }
+            const newQ = ib.rows[0].quantity - 1;
+            await client.query(`UPDATE inventory_bu SET quantity = $1 WHERE id = $2`, [newQ, ib.rows[0].id]);
+            await client.query(
+                `UPDATE kit_units SET status = 'consumed', current_bu_id = NULL, last_event_at = NOW() WHERE id = $1`,
+                [kuId]
+            );
+            const txnId = newId('txn');
+            await client.query(
+                `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                 VALUES ($1, $2, $3, 1, 'usage', 'kit unit consumed (scan)', $4, $5)`,
+                [txnId, itemId, atBu, userId || null, kuId]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: e.message || String(e) });
+        } finally {
+            client.release();
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message || String(err) });
+    }
+});
+
+/** Retire: removes unit from active stock. */
+router.post('/kit-units/retire', async (req, res) => {
+    try {
+        const p = parseKitBarcodeFromBody(req.body);
+        if (p.error) {
+            return res.status(400).json({ error: p.error });
+        }
+        const userId = req.user?.id;
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const cur = await client.query(
+                `SELECT ku.id, ku.item_id, ku.status, ku.current_bu_id
+                 FROM kit_units ku
+                 WHERE LOWER(ku.barcode) = LOWER($1)
+                 FOR UPDATE`,
+                [p.barcode]
+            );
+            if (!cur.rows.length) {
+                throw new Error('Unit not found');
+            }
+            const { id: kuId, item_id: itemId, status, current_bu_id: atBu } = cur.rows[0];
+            if (status === 'consumed' || status === 'retired') {
+                throw new Error('Unit cannot be retired in its current state');
+            }
+            if (status === 'central') {
+                const tq = await client.query(
+                    `SELECT total_quantity FROM inventory_items WHERE id = $1 FOR UPDATE`,
+                    [itemId]
+                );
+                if (tq.rows[0].total_quantity < 1) {
+                    throw new Error('Central stock mismatch');
+                }
+                await client.query(`UPDATE inventory_items SET total_quantity = total_quantity - 1 WHERE id = $1`, [
+                    itemId
+                ]);
+            } else if (status === 'at_bu' && atBu) {
+                const ib = await client.query(
+                    `SELECT id, quantity FROM inventory_bu WHERE item_id = $1 AND bu_id = $2 FOR UPDATE`,
+                    [itemId, atBu]
+                );
+                if (!ib.rows.length || ib.rows[0].quantity < 1) {
+                    throw new Error('Per-BU stock mismatch');
+                }
+                await client.query(`UPDATE inventory_bu SET quantity = quantity - 1 WHERE id = $1`, [ib.rows[0].id]);
+            }
+            await client.query(
+                `UPDATE kit_units SET status = 'retired', current_bu_id = NULL, last_event_at = NOW() WHERE id = $1`,
+                [kuId]
+            );
+            const txnId = newId('txn');
+            await client.query(
+                `INSERT INTO inventory_transactions (id, item_id, bu_id, quantity, type, notes, created_by, kit_unit_id)
+                 VALUES ($1, $2, $3, 1, 'adjustment', 'kit unit retired', $4, $5)`,
+                [txnId, itemId, atBu || null, userId || null, kuId]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: e.message || String(e) });
+        } finally {
+            client.release();
+        }
+        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message || String(err) });
     }

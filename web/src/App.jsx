@@ -16,6 +16,7 @@ import { AdminParametersPage } from './pages/admin/AdminParametersPage.jsx';
 import { ParameterMappingPage } from './pages/admin/ParameterMappingPage.jsx';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage.jsx';
 import { AdminInventoryPage } from './pages/admin/AdminInventoryPage.jsx';
+import { AdminKitUnitsPage } from './pages/admin/AdminKitUnitsPage.jsx';
 import { AdminValidationPage } from './pages/admin/AdminValidationPage.jsx';
 import { AdminAnalyticsPage } from './pages/admin/AdminAnalyticsPage.jsx';
 
@@ -122,6 +123,14 @@ export default function App() {
                                 element={
                                     <RoleGate roles={['super_admin']}>
                                         <AdminInventoryPage />
+                                    </RoleGate>
+                                }
+                            />
+                            <Route
+                                path="/admin/kit-units"
+                                element={
+                                    <RoleGate roles={['super_admin']}>
+                                        <AdminKitUnitsPage />
                                     </RoleGate>
                                 }
                             />

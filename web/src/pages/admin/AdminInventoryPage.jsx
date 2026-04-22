@@ -1,42 +1,56 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Warehouse } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Warehouse, Search } from 'lucide-react';
 import { PageShell, DataTableShell } from '../../components/PageShell.jsx';
 import { apiFetch } from '../../apiClient.js';
 import { TestCodeMultiPicks } from '../../components/lab/TestCodeMultiPicks.jsx';
+import { ScannerFab } from '../../components/inventory/ScannerFab.jsx';
 
 export function AdminInventoryPage() {
     const [items, setItems] = useState([]);
     const [byBu, setByBu] = useState([]);
     const [bus, setBus] = useState([]);
     const [txns, setTxns] = useState([]);
+    const [aggregates, setAggregates] = useState({ byItem: {} });
     const [form, setForm] = useState({
         type: 'kit',
         name: '',
         total_quantity: 0,
         tests_per_kit: '',
-        supported_test_codes: []
+        supported_test_codes: [],
+        kit_id_barcode: ''
     });
     const [send, setSend] = useState({ item_id: '', bu_id: '', quantity: 1, notes: '' });
     const [error, setError] = useState(null);
     const [addingItem, setAddingItem] = useState(false);
     const [sending, setSending] = useState(false);
+    const [inspectItem, setInspectItem] = useState(null);
+    const [inspectUnits, setInspectUnits] = useState([]);
+    const [inspectLoading, setInspectLoading] = useState(false);
 
     const load = async () => {
-        const [ir, br, bur, tr] = await Promise.all([
+        const [ir, br, bur, tr, ar] = await Promise.all([
             apiFetch('/api/admin/inventory/items'),
             apiFetch('/api/admin/business-units'),
             apiFetch('/api/admin/inventory/by-bu'),
-            apiFetch('/api/admin/inventory/transactions?limit=100')
+            apiFetch('/api/admin/inventory/transactions?limit=100'),
+            apiFetch('/api/admin/kit-units/aggregates')
         ]);
         const i = await ir.json();
         const b = await br.json();
         const bu = await bur.json();
         const t = await tr.json();
+        const a = await ar.json();
         if (!ir.ok) throw new Error(i.error);
+        if (!br.ok) throw new Error(b.error);
+        if (!bur.ok) throw new Error(bu.error);
+        if (!tr.ok) throw new Error(t.error);
+        if (!ar.ok) throw new Error(a.error);
         setItems(i.items || []);
         setBus(b.businessUnits || []);
         setByBu(bu.rows || []);
         setTxns(t.transactions || []);
+        setAggregates(a || { byItem: {} });
         if (!send.bu_id && b.businessUnits?.[0]) setSend((s) => ({ ...s, bu_id: b.businessUnits[0].id }));
         if (!send.item_id && i.items?.[0]) setSend((s) => ({ ...s, item_id: i.items[0].id }));
     };
@@ -45,6 +59,24 @@ export function AdminInventoryPage() {
         load().catch((e) => setError(e.message));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const openInspect = async (item) => {
+        setInspectItem(item);
+        setInspectLoading(true);
+        setInspectUnits([]);
+        try {
+            const r = await apiFetch(
+                `/api/admin/kit-units?item_id=${encodeURIComponent(item.id)}&status=central&limit=500`
+            );
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Failed to load');
+            setInspectUnits(d.units || []);
+        } catch (e) {
+            setError(e.message || String(e));
+        } finally {
+            setInspectLoading(false);
+        }
+    };
 
     const addItem = async (e) => {
         e.preventDefault();
@@ -55,6 +87,13 @@ export function AdminInventoryPage() {
                 const tpk = Number(form.tests_per_kit);
                 if (!Number.isFinite(tpk) || tpk < 1 || tpk !== Math.floor(tpk)) {
                     throw new Error('Tests per kit is required for kit items (a positive whole number).');
+                }
+            }
+            const linkBarcode =
+                form.type === 'kit' ? String(form.kit_id_barcode || '').trim() : '';
+            if (linkBarcode) {
+                if (Number(form.total_quantity) < 1) {
+                    throw new Error('Set central qty to at least 1 when linking a Kit ID barcode.');
                 }
             }
             const payload = {
@@ -72,12 +111,22 @@ export function AdminInventoryPage() {
             });
             const d = await res.json();
             if (!res.ok) throw new Error(d.error || 'Could not add item');
+            const newId = d.item?.id;
+            if (linkBarcode && newId) {
+                const r2 = await apiFetch('/api/admin/kit-units', {
+                    method: 'POST',
+                    body: JSON.stringify({ barcode: linkBarcode, item_id: newId, link_only: true })
+                });
+                const d2 = await r2.json();
+                if (!r2.ok) throw new Error(d2.error || 'Item created but could not link Kit ID');
+            }
             setForm({
                 type: 'kit',
                 name: '',
                 total_quantity: 0,
                 tests_per_kit: '',
-                supported_test_codes: []
+                supported_test_codes: [],
+                kit_id_barcode: ''
             });
             await load();
         } catch (err) {
@@ -152,6 +201,7 @@ export function AdminInventoryPage() {
             error={error}
             maxWidthClass="max-w-6xl"
         >
+            <ScannerFab items={items} bus={bus} onRefresh={load} />
             {lowRows.length ? (
                 <div className="rounded-xl border border-warning bg-warning-soft px-4 py-3 text-sm text-ink shadow-sm">
                     <strong className="font-semibold">Low stock</strong>
@@ -161,6 +211,13 @@ export function AdminInventoryPage() {
                     </span>
                 </div>
             ) : null}
+
+            <p className="text-sm text-ink-2">
+                <Link to="/admin/kit-units" className="text-accent hover:underline">
+                    Tracked kit units
+                </Link>{' '}
+                — search barcodes, retire, and audit.
+            </p>
 
             <section aria-labelledby="add-inv-heading">
                 <h2 id="add-inv-heading" className="sr-only">
@@ -183,7 +240,7 @@ export function AdminInventoryPage() {
                                         ...f,
                                         type,
                                         ...(type !== 'kit'
-                                            ? { tests_per_kit: '', supported_test_codes: [] }
+                                            ? { tests_per_kit: '', supported_test_codes: [], kit_id_barcode: '' }
                                             : {})
                                     }));
                                 }}
@@ -237,6 +294,23 @@ export function AdminInventoryPage() {
                             </div>
                         ) : null}
                         {form.type === 'kit' ? (
+                            <div className="sm:col-span-2">
+                                <label
+                                    className="block text-xs font-medium text-ink-2 mb-1.5"
+                                    htmlFor="kit-id-barcode"
+                                >
+                                    Kit ID (barcode) <span className="text-ink-3">optional</span>
+                                </label>
+                                <input
+                                    id="kit-id-barcode"
+                                    className="lab-input w-full font-mono text-sm"
+                                    placeholder="Scan or paste one unit’s barcode (no +1 to qty)"
+                                    value={form.kit_id_barcode}
+                                    onChange={(e) => setForm({ ...form, kit_id_barcode: e.target.value })}
+                                />
+                            </div>
+                        ) : null}
+                        {form.type === 'kit' ? (
                             <div className="sm:col-span-4">
                                 <TestCodeMultiPicks
                                     value={form.supported_test_codes}
@@ -258,13 +332,15 @@ export function AdminInventoryPage() {
             </section>
 
             <DataTableShell title="Central stock" count={items.length}>
-                <table className="data-table data-table-lab w-full min-w-[640px] table-fixed">
+                <table className="data-table data-table-lab w-full min-w-[860px] table-fixed">
                     <colgroup>
-                        <col style={{ width: '26%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '32%' }} />
                         <col style={{ width: '20%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '12%' }} />
                     </colgroup>
                     <thead>
                         <tr>
@@ -272,13 +348,15 @@ export function AdminInventoryPage() {
                             <th>Type</th>
                             <th className="text-right">Tests/kit</th>
                             <th>Tests</th>
-                            <th className="pr-5 text-right">Qty</th>
+                            <th className="text-right pr-1">Qty</th>
+                            <th className="text-right pr-1">Tracked</th>
+                            <th className="pr-5" />
                         </tr>
                     </thead>
                     <tbody>
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-5 py-12 text-center text-sm text-ink-3">
+                                <td colSpan={7} className="px-5 py-12 text-center text-sm text-ink-3">
                                     No central items yet.
                                 </td>
                             </tr>
@@ -287,6 +365,7 @@ export function AdminInventoryPage() {
                                 const codes = Array.isArray(i.supported_test_codes)
                                     ? i.supported_test_codes
                                     : [];
+                                const tr = i.type === 'kit' ? aggregates.byItem?.[i.id]?.central ?? 0 : '—';
                                 return (
                                     <tr key={i.id} className="hover:bg-surface-muted/50 transition-colors">
                                         <td className="pl-5 py-3 text-sm font-medium text-ink truncate">
@@ -302,7 +381,26 @@ export function AdminInventoryPage() {
                                         >
                                             {codes.length ? codes.join(', ') : '—'}
                                         </td>
-                                        <td className="pr-5 py-3 text-sm tabular-nums text-right">{i.total_quantity}</td>
+                                        <td className="py-3 text-sm tabular-nums text-right pr-1">
+                                            {i.total_quantity}
+                                        </td>
+                                        <td className="py-3 text-sm tabular-nums text-right pr-1 text-ink-2">
+                                            {tr}
+                                        </td>
+                                        <td className="pr-5 py-3 text-right">
+                                            {i.type === 'kit' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openInspect(i)}
+                                                    className="inline-flex items-center gap-1 rounded-lg border border-ink-3/30 px-2 py-1 text-xs text-ink-2 hover:bg-surface-muted"
+                                                >
+                                                    <Search className="h-3.5 w-3.5" />
+                                                    Inspect
+                                                </button>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })
@@ -426,25 +524,27 @@ export function AdminInventoryPage() {
             </div>
 
             <DataTableShell title="Per-BU stock" count={byBu.length}>
-                <table className="data-table data-table-lab text-xs w-full min-w-[560px] table-fixed">
+                <table className="data-table data-table-lab text-xs w-full min-w-[640px] table-fixed">
                     <colgroup>
-                        <col style={{ width: '32%' }} />
                         <col style={{ width: '28%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '26%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '22%' }} />
                     </colgroup>
                     <thead>
                         <tr>
                             <th className="pl-5">Item</th>
                             <th>BU</th>
                             <th className="text-right">Qty</th>
+                            <th className="text-right">Units</th>
                             <th className="pr-5 text-right">Tests remaining</th>
                         </tr>
                     </thead>
                     <tbody>
                         {byBu.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-5 py-12 text-center text-ink-3">
+                                <td colSpan={5} className="px-5 py-12 text-center text-ink-3">
                                     No per-BU rows yet.
                                 </td>
                             </tr>
@@ -454,6 +554,9 @@ export function AdminInventoryPage() {
                                     <td className="pl-5 py-2.5 truncate">{r.item_name}</td>
                                     <td className="py-2.5 truncate">{r.bu_name}</td>
                                     <td className="py-2.5 tabular-nums text-right">{r.quantity}</td>
+                                    <td className="py-2.5 text-right tabular-nums text-ink-2">
+                                        {r.units_at_bu != null ? r.units_at_bu : '—'}
+                                    </td>
                                     <td className="pr-5 py-2.5 text-right tabular-nums text-ink-2">
                                         {r.tests_per_kit == null
                                             ? '—'
@@ -504,6 +607,43 @@ export function AdminInventoryPage() {
                     </tbody>
                 </table>
             </DataTableShell>
+
+            {inspectItem ? (
+                <div
+                    className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-ink/60"
+                    role="dialog"
+                    aria-label="Kit units in central"
+                >
+                    <div className="w-full max-w-lg rounded-2xl border border-ink-3/30 bg-surface-elev p-4 shadow-xl max-h-[80vh] overflow-y-auto">
+                        <div className="mb-2 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-ink">Central / tracked — {inspectItem.name}</h3>
+                            <button
+                                type="button"
+                                className="text-xs text-ink-2 hover:underline"
+                                onClick={() => {
+                                    setInspectItem(null);
+                                    setInspectUnits([]);
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                        {inspectLoading ? (
+                            <p className="text-sm text-ink-3">Loading…</p>
+                        ) : inspectUnits.length === 0 ? (
+                            <p className="text-sm text-ink-3">No barcoded units in central for this type.</p>
+                        ) : (
+                            <ul className="max-h-64 overflow-y-auto font-mono text-xs text-ink-2">
+                                {inspectUnits.map((u) => (
+                                    <li key={u.id} className="border-b border-ink-3/20 py-1.5">
+                                        {u.barcode}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            ) : null}
         </PageShell>
     );
 }

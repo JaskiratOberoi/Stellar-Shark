@@ -9,6 +9,7 @@ import {
     LayoutGrid,
     Link2,
     Package,
+    Barcode,
     SlidersHorizontal,
     Users,
     Warehouse
@@ -97,6 +98,12 @@ const QUICK_LINKS = [
         title: 'Inventory',
         description: 'Stock, allocations, and alerts',
         icon: Warehouse
+    },
+    {
+        to: '/admin/kit-units',
+        title: 'Kit units',
+        description: 'Barcoded physical kits, scan lifecycle',
+        icon: Barcode
     },
     {
         to: '/admin/validation',

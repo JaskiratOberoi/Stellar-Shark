@@ -187,6 +187,27 @@ async function migrate() {
         `);
 
         await client.query(`
+            CREATE TABLE IF NOT EXISTS kit_units (
+                id TEXT PRIMARY KEY,
+                item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+                barcode TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL CHECK (status IN ('central', 'at_bu', 'consumed', 'retired')),
+                current_bu_id TEXT REFERENCES business_units(id) ON DELETE SET NULL,
+                registered_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+                registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_event_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_kit_units_item ON kit_units (item_id);
+            CREATE INDEX IF NOT EXISTS idx_kit_units_status_bu ON kit_units (status, current_bu_id);
+            CREATE INDEX IF NOT EXISTS idx_kit_units_barcode_lower ON kit_units (LOWER(barcode));
+        `);
+
+        await client.query(`
+            ALTER TABLE inventory_transactions
+                ADD COLUMN IF NOT EXISTS kit_unit_id TEXT REFERENCES kit_units(id) ON DELETE SET NULL;
+        `);
+
+        await client.query(`
             CREATE TABLE IF NOT EXISTS lab_entries (
                 id TEXT PRIMARY KEY,
                 date DATE NOT NULL,
