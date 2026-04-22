@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Warehouse } from 'lucide-react';
 import { PageShell, DataTableShell } from '../../components/PageShell.jsx';
 import { apiFetch } from '../../apiClient.js';
+import { TestCodeMultiPicks } from '../../components/lab/TestCodeMultiPicks.jsx';
 
 export function AdminInventoryPage() {
     const [items, setItems] = useState([]);
@@ -11,7 +12,9 @@ export function AdminInventoryPage() {
     const [form, setForm] = useState({
         type: 'kit',
         name: '',
-        total_quantity: 0
+        total_quantity: 0,
+        tests_per_kit: '',
+        supported_test_codes: []
     });
     const [send, setSend] = useState({ item_id: '', bu_id: '', quantity: 1, notes: '' });
     const [error, setError] = useState(null);
@@ -48,13 +51,34 @@ export function AdminInventoryPage() {
         setError(null);
         setAddingItem(true);
         try {
+            if (form.type === 'kit') {
+                const tpk = Number(form.tests_per_kit);
+                if (!Number.isFinite(tpk) || tpk < 1 || tpk !== Math.floor(tpk)) {
+                    throw new Error('Tests per kit is required for kit items (a positive whole number).');
+                }
+            }
+            const payload = {
+                type: form.type,
+                name: form.name,
+                total_quantity: form.total_quantity,
+                ...(form.type === 'kit' && {
+                    tests_per_kit: Number(form.tests_per_kit),
+                    supported_test_codes: form.supported_test_codes
+                })
+            };
             const res = await apiFetch('/api/admin/inventory/items', {
                 method: 'POST',
-                body: JSON.stringify(form)
+                body: JSON.stringify(payload)
             });
             const d = await res.json();
             if (!res.ok) throw new Error(d.error || 'Could not add item');
-            setForm({ type: 'kit', name: '', total_quantity: 0 });
+            setForm({
+                type: 'kit',
+                name: '',
+                total_quantity: 0,
+                tests_per_kit: '',
+                supported_test_codes: []
+            });
             await load();
         } catch (err) {
             setError(err.message || String(err));
@@ -109,6 +133,16 @@ export function AdminInventoryPage() {
         return th != null && r.quantity <= th;
     });
 
+    const sendSelectedItem = useMemo(
+        () => items.find((i) => i.id === send.item_id),
+        [items, send.item_id]
+    );
+    const sendQty = Number(send.quantity) || 0;
+    const sendTestsCapacity =
+        sendSelectedItem?.type === 'kit' && sendSelectedItem?.tests_per_kit
+            ? sendQty * Number(sendSelectedItem.tests_per_kit)
+            : null;
+
     return (
         <PageShell
             badge="Admin · Inventory"
@@ -143,7 +177,16 @@ export function AdminInventoryPage() {
                                 id="inv-type"
                                 className="lab-input w-full"
                                 value={form.type}
-                                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                                onChange={(e) => {
+                                    const type = e.target.value;
+                                    setForm((f) => ({
+                                        ...f,
+                                        type,
+                                        ...(type !== 'kit'
+                                            ? { tests_per_kit: '', supported_test_codes: [] }
+                                            : {})
+                                    }));
+                                }}
                             >
                                 <option value="kit">kit</option>
                                 <option value="card">card</option>
@@ -174,6 +217,33 @@ export function AdminInventoryPage() {
                                 onChange={(e) => setForm({ ...form, total_quantity: Number(e.target.value) })}
                             />
                         </div>
+                        {form.type === 'kit' ? (
+                            <div className="sm:col-span-2">
+                                <label
+                                    className="block text-xs font-medium text-ink-2 mb-1.5"
+                                    htmlFor="inv-tpk"
+                                >
+                                    Tests per kit <span className="text-accent font-normal">*</span>
+                                </label>
+                                <input
+                                    id="inv-tpk"
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    className="lab-input w-full"
+                                    value={form.tests_per_kit}
+                                    onChange={(e) => setForm({ ...form, tests_per_kit: e.target.value })}
+                                />
+                            </div>
+                        ) : null}
+                        {form.type === 'kit' ? (
+                            <div className="sm:col-span-4">
+                                <TestCodeMultiPicks
+                                    value={form.supported_test_codes}
+                                    onChange={(codes) => setForm((f) => ({ ...f, supported_test_codes: codes }))}
+                                />
+                            </div>
+                        ) : null}
                         <div className="sm:col-span-4">
                             <button
                                 type="submit"
@@ -188,29 +258,54 @@ export function AdminInventoryPage() {
             </section>
 
             <DataTableShell title="Central stock" count={items.length}>
-                <table className="data-table data-table-lab w-full min-w-[360px]">
+                <table className="data-table data-table-lab w-full min-w-[640px] table-fixed">
+                    <colgroup>
+                        <col style={{ width: '26%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '32%' }} />
+                        <col style={{ width: '20%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th className="pl-5">Name</th>
                             <th>Type</th>
-                            <th className="pr-5">Qty</th>
+                            <th className="text-right">Tests/kit</th>
+                            <th>Tests</th>
+                            <th className="pr-5 text-right">Qty</th>
                         </tr>
                     </thead>
                     <tbody>
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={3} className="px-5 py-12 text-center text-sm text-ink-muted">
+                                <td colSpan={5} className="px-5 py-12 text-center text-sm text-ink-3">
                                     No central items yet.
                                 </td>
                             </tr>
                         ) : (
-                            items.map((i) => (
-                                <tr key={i.id} className="hover:bg-surface-muted/50 transition-colors">
-                                    <td className="pl-5 py-3 text-sm font-medium text-ink">{i.name}</td>
-                                    <td className="py-3 text-sm text-ink-secondary">{i.type}</td>
-                                    <td className="pr-5 py-3 text-sm tabular-nums">{i.total_quantity}</td>
-                                </tr>
-                            ))
+                            items.map((i) => {
+                                const codes = Array.isArray(i.supported_test_codes)
+                                    ? i.supported_test_codes
+                                    : [];
+                                return (
+                                    <tr key={i.id} className="hover:bg-surface-muted/50 transition-colors">
+                                        <td className="pl-5 py-3 text-sm font-medium text-ink truncate">
+                                            {i.name}
+                                        </td>
+                                        <td className="py-3 text-sm text-ink-2">{i.type}</td>
+                                        <td className="py-3 text-sm text-right tabular-nums text-ink-2">
+                                            {i.tests_per_kit != null ? i.tests_per_kit : '—'}
+                                        </td>
+                                        <td
+                                            className="py-3 text-sm font-mono text-[10px] uppercase text-ink-2 truncate"
+                                            title={codes.join(', ')}
+                                        >
+                                            {codes.length ? codes.join(', ') : '—'}
+                                        </td>
+                                        <td className="pr-5 py-3 text-sm tabular-nums text-right">{i.total_quantity}</td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
@@ -282,6 +377,16 @@ export function AdminInventoryPage() {
                                     value={send.quantity}
                                     onChange={(e) => setSend({ ...send, quantity: e.target.value })}
                                 />
+                                {sendTestsCapacity != null ? (
+                                    <p className="mt-1.5 text-xs text-ink-3">
+                                        Sending <span className="tabular-nums text-ink-2">{sendQty}</span> kit
+                                        {sendQty === 1 ? '' : 's'} ≈{' '}
+                                        <span className="font-mono text-ink tabular-nums">
+                                            {sendTestsCapacity}
+                                        </span>{' '}
+                                        tests capacity
+                                    </p>
+                                ) : null}
                             </div>
                             <div className="sm:col-span-2 lg:col-span-1">
                                 <label className="block text-xs font-medium text-ink-secondary mb-1.5" htmlFor="send-notes">
@@ -321,27 +426,39 @@ export function AdminInventoryPage() {
             </div>
 
             <DataTableShell title="Per-BU stock" count={byBu.length}>
-                <table className="data-table data-table-lab text-xs w-full min-w-[360px]">
+                <table className="data-table data-table-lab text-xs w-full min-w-[560px] table-fixed">
+                    <colgroup>
+                        <col style={{ width: '32%' }} />
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '25%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th className="pl-5">Item</th>
                             <th>BU</th>
-                            <th className="pr-5">Qty</th>
+                            <th className="text-right">Qty</th>
+                            <th className="pr-5 text-right">Tests remaining</th>
                         </tr>
                     </thead>
                     <tbody>
                         {byBu.length === 0 ? (
                             <tr>
-                                <td colSpan={3} className="px-5 py-12 text-center text-ink-muted">
+                                <td colSpan={4} className="px-5 py-12 text-center text-ink-3">
                                     No per-BU rows yet.
                                 </td>
                             </tr>
                         ) : (
                             byBu.map((r) => (
                                 <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
-                                    <td className="pl-5 py-2.5">{r.item_name}</td>
-                                    <td className="py-2.5">{r.bu_name}</td>
-                                    <td className="pr-5 py-2.5 tabular-nums">{r.quantity}</td>
+                                    <td className="pl-5 py-2.5 truncate">{r.item_name}</td>
+                                    <td className="py-2.5 truncate">{r.bu_name}</td>
+                                    <td className="py-2.5 tabular-nums text-right">{r.quantity}</td>
+                                    <td className="pr-5 py-2.5 text-right tabular-nums text-ink-2">
+                                        {r.tests_per_kit == null
+                                            ? '—'
+                                            : (r.tests_remaining != null ? r.tests_remaining : 0)}
+                                    </td>
                                 </tr>
                             ))
                         )}

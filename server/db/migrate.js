@@ -146,6 +146,12 @@ async function migrate() {
                 low_stock_threshold INT
             );
         `);
+        await client.query(`
+            ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS tests_per_kit INT;
+        `);
+        await client.query(`
+            ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS supported_test_codes TEXT[];
+        `);
 
         await client.query(`
             ALTER TABLE machines ADD COLUMN IF NOT EXISTS calibration_item_id TEXT REFERENCES inventory_items(id) ON DELETE SET NULL;

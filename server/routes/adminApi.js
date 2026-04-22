@@ -25,6 +25,46 @@ function slugId(name) {
     return base || `x-${crypto.randomBytes(4).toString('hex')}`;
 }
 
+/**
+ * For kit items only, derive tests_per_kit and supported_test_codes. Non-kit
+ * always returns (null, null) so callers can store and ignore spurious input.
+ * @returns {{ error?: string, testsPerKit: number | null, supportedTestCodes: string[] | null }}
+ */
+function parseKitInventoryFromBody(type, body) {
+    if (type !== 'kit') {
+        return { testsPerKit: null, supportedTestCodes: null };
+    }
+    let testsPerKit = null;
+    if (body?.tests_per_kit != null && body.tests_per_kit !== '') {
+        const n = Number(body.tests_per_kit);
+        if (!Number.isFinite(n) || n <= 0 || n !== Math.floor(n)) {
+            return { error: 'tests_per_kit must be a positive integer' };
+        }
+        testsPerKit = n;
+    }
+    let supportedTestCodes = null;
+    if (body?.supported_test_codes != null) {
+        if (!Array.isArray(body.supported_test_codes)) {
+            return { error: 'supported_test_codes must be an array' };
+        }
+        const seen = new Set();
+        const out = [];
+        for (const x of body.supported_test_codes) {
+            const c = String(x).trim().toUpperCase();
+            if (!c) continue;
+            if (c.length > 16) {
+                return { error: 'Each test code is at most 16 characters' };
+            }
+            if (!seen.has(c)) {
+                seen.add(c);
+                out.push(c);
+            }
+        }
+        supportedTestCodes = out.length ? out : null;
+    }
+    return { testsPerKit, supportedTestCodes };
+}
+
 // --- Business units ---
 router.get('/business-units', async (_req, res) => {
     try {
@@ -527,12 +567,17 @@ router.post('/inventory/items', async (req, res) => {
         if (!['kit', 'card', 'lot'].includes(type) || !name) {
             return res.status(400).json({ error: 'type (kit|card|lot) and name required' });
         }
+        const kit = parseKitInventoryFromBody(type, req.body);
+        if (kit.error) {
+            return res.status(400).json({ error: kit.error });
+        }
         const id = newId('inv');
         const pool = getPool();
         await pool.query(
-            `INSERT INTO inventory_items (id, type, kit_id, name, total_quantity, low_stock_threshold)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [id, type, kitId, name, totalQuantity, lowStock]
+            `INSERT INTO inventory_items
+               (id, type, kit_id, name, total_quantity, low_stock_threshold, tests_per_kit, supported_test_codes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [id, type, kitId, name, totalQuantity, lowStock, kit.testsPerKit, kit.supportedTestCodes]
         );
         const r = await pool.query(`SELECT * FROM inventory_items WHERE id = $1`, [id]);
         res.json({ item: r.rows[0] });
@@ -546,6 +591,9 @@ router.patch('/inventory/items/:id', async (req, res) => {
         const { id } = req.params;
         const pool = getPool();
         const body = req.body || {};
+        const cur = await pool.query(`SELECT type FROM inventory_items WHERE id = $1`, [id]);
+        if (!cur.rows.length) return res.status(404).json({ error: 'Not found' });
+        const itemType = cur.rows[0].type;
         const fields = [];
         const vals = [];
         let n = 1;
@@ -560,6 +608,29 @@ router.patch('/inventory/items/:id', async (req, res) => {
         if (body.low_stock_threshold !== undefined) {
             fields.push(`low_stock_threshold = $${n++}`);
             vals.push(body.low_stock_threshold == null ? null : Number(body.low_stock_threshold));
+        }
+        if (itemType === 'kit') {
+            if (body.tests_per_kit !== undefined) {
+                if (body.tests_per_kit == null || body.tests_per_kit === '') {
+                    fields.push(`tests_per_kit = $${n++}`);
+                    vals.push(null);
+                } else {
+                    const num = Number(body.tests_per_kit);
+                    if (!Number.isFinite(num) || num <= 0 || num !== Math.floor(num)) {
+                        return res.status(400).json({ error: 'tests_per_kit must be a positive integer' });
+                    }
+                    fields.push(`tests_per_kit = $${n++}`);
+                    vals.push(num);
+                }
+            }
+            if (body.supported_test_codes !== undefined) {
+                const k = parseKitInventoryFromBody('kit', { supported_test_codes: body.supported_test_codes });
+                if (k.error) {
+                    return res.status(400).json({ error: k.error });
+                }
+                fields.push(`supported_test_codes = $${n++}`);
+                vals.push(k.supportedTestCodes);
+            }
         }
         if (!fields.length) return res.status(400).json({ error: 'No updates' });
         vals.push(id);
@@ -576,7 +647,13 @@ router.get('/inventory/by-bu', async (_req, res) => {
     try {
         const pool = getPool();
         const r = await pool.query(
-            `SELECT ib.*, bu.name AS bu_name, i.name AS item_name, i.type AS item_type
+            `SELECT ib.*,
+                    bu.name AS bu_name,
+                    i.name AS item_name,
+                    i.type AS item_type,
+                    i.tests_per_kit,
+                    i.supported_test_codes,
+                    (ib.quantity * COALESCE(i.tests_per_kit, 0))::int AS tests_remaining
              FROM inventory_bu ib
              JOIN business_units bu ON bu.id = ib.bu_id
              JOIN inventory_items i ON i.id = ib.item_id
