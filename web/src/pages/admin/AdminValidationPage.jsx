@@ -72,9 +72,12 @@ export function AdminValidationPage() {
             description="LIS totals from Teller runs (single-day) sync into this table automatically when a run is saved. Lab kit totals update when technicians save lab entry — or use Recompute. The same BU-level LIS count is shown on each machine row for that day."
             error={error}
         >
-            <div className="lab-card p-4 md:p-5 shadow-card flex flex-wrap items-center gap-4">
+            <div className="lab-card p-4 md:p-5 shadow-card flex flex-wrap items-end gap-3">
                 <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1.5" htmlFor="val-date">
+                    <label
+                        className="block text-xs font-medium text-ink-2 mb-1.5"
+                        htmlFor="val-date"
+                    >
                         Date
                     </label>
                     <input
@@ -85,26 +88,32 @@ export function AdminValidationPage() {
                         onChange={(e) => setDate(e.target.value)}
                     />
                 </div>
-                <div className="flex items-end">
-                    <button
-                        type="button"
-                        disabled={recomputing}
-                        className="btn-ghost px-4 py-2.5 text-sm disabled:opacity-50"
-                        onClick={recompute}
-                    >
-                        {recomputing ? 'Recomputing…' : 'Recompute lab totals'}
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    disabled={recomputing}
+                    className="btn-ghost text-sm disabled:opacity-50"
+                    onClick={recompute}
+                >
+                    {recomputing ? 'Recomputing…' : 'Recompute lab totals'}
+                </button>
             </div>
 
             <DataTableShell title="Validation rows" count={rows.length}>
-                <table className="data-table data-table-lab w-full min-w-[640px]">
+                <table className="data-table data-table-lab w-full min-w-[640px] table-fixed">
+                    <colgroup>
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '16%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th className="pl-5">BU</th>
                             <th>Machine</th>
-                            <th>LIS (Teller)</th>
-                            <th>Lab kits</th>
+                            <th className="text-right">LIS (Teller)</th>
+                            <th className="text-right">Lab kits</th>
                             <th>Status</th>
                             <th className="pr-5 text-right">Actions</th>
                         </tr>
@@ -120,10 +129,14 @@ export function AdminValidationPage() {
                         ) : (
                             rows.map((r) => (
                                 <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
-                                    <td className="pl-5 py-3 text-sm text-ink">{r.bu_name}</td>
-                                    <td className="py-3 text-sm text-ink-secondary">{r.machine_name}</td>
-                                    <td className="py-3 text-sm tabular-nums">{r.shark_count ?? '—'}</td>
-                                    <td className="py-3 text-sm tabular-nums">{r.lab_tech_count ?? '—'}</td>
+                                    <td className="pl-5 py-3 text-ink truncate">{r.bu_name}</td>
+                                    <td className="py-3 text-ink-2 truncate">{r.machine_name}</td>
+                                    <td className="py-3 text-right tabular-nums">
+                                        {r.shark_count ?? '—'}
+                                    </td>
+                                    <td className="py-3 text-right tabular-nums">
+                                        {r.lab_tech_count ?? '—'}
+                                    </td>
                                     <td className="py-3">
                                         <span
                                             className={
@@ -131,7 +144,7 @@ export function AdminValidationPage() {
                                                     ? 'text-success font-medium'
                                                     : r.match_status === 'mismatch'
                                                       ? 'text-danger font-medium'
-                                                      : 'text-ink-muted'
+                                                      : 'text-ink-3'
                                             }
                                         >
                                             {r.match_status || 'pending'}
@@ -140,7 +153,7 @@ export function AdminValidationPage() {
                                     <td className="pr-5 py-3 text-right">
                                         <button
                                             type="button"
-                                            className="text-xs font-medium text-primary hover:underline"
+                                            className="text-xs font-medium text-accent hover:underline"
                                             onClick={() => upsert(r)}
                                         >
                                             Override LIS
